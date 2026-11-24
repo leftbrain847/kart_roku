@@ -64,6 +64,7 @@ function BuildSprites(cfg as Object) as Object
             props.Push(lm.k)
         end for
     end if
+    if cfg.course.DoesExist("loops") and cfg.course.loops.Count() > 0 then props.Push("loopring")
     for each name in props
         list[name] = { path: dir + name + ".png", w: widths[name] }
     end for

@@ -348,6 +348,10 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
                 end for
             end if
         end for
+        for each l0 in cfg.course.loops
+            d = lapBase + rep * L + l0 - s.camZ
+            if d > nearD and d < far then list.Push({ d: d, x: 0, k: "loopring", h: 0 })
+        end for
         if th.DoesExist("landmarks") then
             for each lm in th.landmarks
                 d = lapBase + rep * L + lm.at - s.camZ
@@ -369,6 +373,7 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
     for each kt in s.karts
         hop = 0
         if kt.jumpT > 0 then hop = Sin(3.14159 * kt.jumpT / cfg.lanes.jumpTime) * cfg.lanes.jumpHeight
+        if kt.airT > 0 then hop = hop + Sin(3.14159 * kt.airT / cfg.air.time) * cfg.air.height
         wob = 0
         if kt.spinT > 0 then wob = Sin(kt.spinT * 40) * 0.12
         ang = ""

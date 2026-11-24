@@ -94,23 +94,39 @@ function RoadPieces(cfg as Object, sm as Float) as Object
     return pieces
 end function
 
-' Builds the course tables, one entry per whole unit of the lap: curve (eased in and out of each section),
-' elevation (eased up or down by each section's `rise`), roll in degrees (a section's `roll` sweeps 0 -> roll)
-' and whether that unit is inside a tube.
+'' Builds the course tables, one entry per whole unit of the lap:
+'   curve  - eased in and out of each section
+'   elev   - road height; a section's `rise` eases it up or down; a `loop` section adds a hump that rises
+'            and falls back (the climb up the loop's wall and the drop out of it)
+'   roll   - camera roll in degrees: `roll` sweeps 0 -> roll (a barrel roll is 360), `bank` tilts into a bend
+'            and back out, and a `loop` flips you through the top (0 -> 360)
+'   tube   - inside a tube
+' cfg.course.loops lists where each loop starts, so the renderer can show the loop structure ahead.
 sub PrepareCourse(cfg as Object)
     if cfg.course.DoesExist("table") then return
     curveTab = []
     elevTab = []
     rollTab = []
     tubeTab = []
+    loops = []
     ease = cfg.course.easeLen
     elev = 0.0
+    at = 0
     for each sec in cfg.course.sections
         rise = 0
         if sec.DoesExist("rise") then rise = sec.rise
         roll = 0
         if sec.DoesExist("roll") then roll = sec.roll
+        bank = 0
+        if sec.DoesExist("bank") then bank = sec.bank
         tube = sec.DoesExist("tube") and sec.tube
+        isLoop = sec.DoesExist("loop") and sec.loop
+        hump = 0
+        if isLoop then
+            hump = sec.len * cfg.course.loopHeight
+            roll = 360
+            loops.Push(at)
+        end if
         for u = 0 to sec.len - 1
             f = 1.0
             if ease > 0 then
@@ -120,11 +136,13 @@ sub PrepareCourse(cfg as Object)
             end if
             curveTab.Push(sec.curve * f)
             t = u / sec.len
-            elevTab.Push(elev + rise * (1 - Cos(3.14159265 * t)) / 2)
-            rollTab.Push(roll * (1 - Cos(3.14159265 * t)) / 2)
+            sw = Sin(3.14159265 * t)
+            elevTab.Push(elev + rise * (1 - Cos(3.14159265 * t)) / 2 + hump * sw * sw)
+            rollTab.Push(roll * (1 - Cos(3.14159265 * t)) / 2 + bank * f)
             tubeTab.Push(tube)
         end for
         elev = elev + rise
+        at = at + sec.len
     end for
     while curveTab.Count() < cfg.track.length
         curveTab.Push(0)
@@ -136,7 +154,13 @@ sub PrepareCourse(cfg as Object)
     cfg.course.elev = elevTab
     cfg.course.roll = rollTab
     cfg.course.tube = tubeTab
+    cfg.course.loops = loops
 end sub
+
+' How sharply the road crests at s (negative = cresting); used for airtime.
+function CrestAt(cfg as Object, s as Float) as Float
+    return ElevAt(cfg, s + 2) - 2 * ElevAt(cfg, s) + ElevAt(cfg, s - 2)
+end function
 
 ' Curve (before curveScale) at track position s.
 function CurveAt(cfg as Object, s as Float) as Float

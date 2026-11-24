@@ -14,6 +14,7 @@ sub Main()
     TestLapsRaceAndBest(t)
     TestPauseAndKeys(t)
     TestWorlds(t)
+    TestThrills(t)
     print "RESULT pass=" + t.pass.ToStr() + " fail=" + t.fail.ToStr()
 end sub
 
@@ -400,4 +401,72 @@ sub TestWorlds(t as Object)
     Check(t, TrackTitle("pebble") = "PEBBLE COVE" and RacerTitle("jelly") = "JELLY JET", "track and racer names")
     c3.course.sections[0].rise = 3
     Check(t, ValidateConfig(c3).Count() = 1, "unbalanced hills are reported")
+end sub
+
+sub TestThrills(t as Object)
+    names = []
+    names.Append(GameConfig().tracks)
+    allOk = true
+    every = true
+    for each n in names
+        cfg = GameConfig()
+        SetupRace(cfg, n, "toaster")
+        if ValidateConfig(cfg).Count() > 0 then
+            allOk = false
+            print "  invalid: " + n
+        end if
+        PrepareCourse(cfg)
+        hills = false
+        twist = false
+        for u = 0 to cfg.track.length - 1
+            if Abs(cfg.course.elev[u]) > 3 then hills = true
+            if Abs(cfg.course.roll[u]) > 170 then twist = true
+        end for
+        if not hills or not twist then
+            every = false
+            print "  missing hills or a loop/roll: " + n
+        end if
+    end for
+    Check(t, allOk, "every track's course is valid")
+    Check(t, every, "every track has hills and a loop or barrel roll")
+
+    cfg = GameConfig()
+    SetupRace(cfg, "meadow", "toaster")
+    PrepareCourse(cfg)
+    Check(t, cfg.course.loops.Count() = 1 and cfg.course.loops[0] = 250, "meadow's loop starts at 250")
+    top = ElevAt(cfg, 325)
+    Check(t, top > ElevAt(cfg, 250) + 20, "a loop climbs its wall")
+    Check(t, Abs(ElevAt(cfg, 399.5) - ElevAt(cfg, 250)) < 6, "and drops back out")
+    Check(t, Abs(RollAt(cfg, 325) - 180) < 3, "upside down at the top of the loop")
+    Check(t, Abs(RollAt(cfg, 1280)) > 8, "banked turn tilts the view")
+
+    ' Airtime off a sharp crest at speed, but not when slow, and never inside a loop.
+    c2 = GameConfig()
+    SetupRace(c2, "desert", "toaster")
+    s = NewGame(c2, 3)
+    s.countdown = 0
+    p = s.player
+    p.s = 292
+    p.speed = 26
+    Sim(s, 0.8)
+    Check(t, s.stats.airs >= 1, "fast over the crest of a drop gets airtime")
+    c3 = GameConfig()
+    SetupRace(c3, "desert", "toaster")
+    c3.speed.max = 8
+    s2 = NewGame(c3, 3)
+    s2.countdown = 0
+    s2.player.s = 292
+    s2.player.speed = 8
+    Sim(s2, 0.8)
+    Check(t, s2.stats.airs = 0, "no airtime when slow")
+    s3 = NewGame(cfg, 3)
+    s3.countdown = 0
+    s3.player.s = 290
+    s3.player.speed = 26
+    Sim(s3, 3)
+    Check(t, s3.stats.airs = 0, "no airtime over the top of a loop")
+    p.airT = 0.3
+    lane = p.lane
+    HandleKey(s, Keys().left)
+    Check(t, p.lane = lane, "no steering in the air")
 end sub

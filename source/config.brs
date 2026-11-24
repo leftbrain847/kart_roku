@@ -12,6 +12,13 @@ function GameConfig() as Object
             jumpHeight: 0.55    ' hop height (units)
         }
 
+        air: {
+            crest: -0.004       ' a crest sharper than this (height change per 2 units, curving down) launches you; never in loops or rolls
+            minSpeed: 18        ' ...if you're at least this fast
+            time: 0.5           ' seconds in the air
+            height: 0.9         ' how high (units)
+        }
+
         race: {
             laps: 3             ' race length; 0 = endless laps
             countdown: 3        ' seconds of 3-2-1 before the start
@@ -49,6 +56,7 @@ function GameConfig() as Object
             curveScale: 0.0022  ' how sharply a curve of 1.0 bends on screen
             easeLen: 30         ' units to ease into and out of each curve
             parallax: 0.004     ' how far the hills slide per unit of curve driven
+            loopHeight: 0.18    ' a loop's hump is this fraction of its length
         }
 
         ' Split zones. At `start` gaps open between lane groups: `splits` lists the first lane of each new group

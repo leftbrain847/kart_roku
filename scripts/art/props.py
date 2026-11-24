@@ -92,7 +92,33 @@ def rockarch():
     return [(arch, rock), (sphere((-1.3, 3.6, -0.6), 0.3), dark), (sphere((1.6, 3.2, -0.7), 0.25), dark)]
 
 
-PROPS = {"brachio": (brachio, (620, 520), 10.5, (0, 3.4, 0.2), 4),
+def loopring():
+    """A loop-the-loop: a steel ribbon of road that curls up and over while drifting sideways (so it can enter and
+    leave at the bottom), with yellow edge rails and support legs."""
+    steel = Mat((150, 156, 172), spec=0.9, shine=70, rim=0.5, metal=True)
+    rail = Mat((255, 194, 26), spec=0.6, shine=40, rim=0.4)
+    dark = Mat((60, 64, 76), spec=0.5)
+    R, drift = 4.0, 3.4
+
+    def ribbon(edge, half, thick):
+        def f(p):
+            q = p - np.array([0.0, R, 0.0])
+            theta = np.mod(np.arctan2(q[:, 2], -q[:, 1]), 2 * np.pi)
+            xc = -drift / 2 + drift * theta / (2 * np.pi) + edge
+            ring = np.sqrt(q[:, 1] ** 2 + q[:, 2] ** 2) - R
+            dx = np.abs(q[:, 0] - xc) - half
+            dr = np.abs(ring) - thick
+            return (np.minimum(np.maximum(dx, dr), 0) + np.sqrt(np.maximum(dx, 0) ** 2 + np.maximum(dr, 0) ** 2)) * 0.8
+        return f
+
+    parts = [(ribbon(0.0, 1.25, 0.12), steel), (ribbon(-1.35, 0.1, 0.24), rail), (ribbon(1.35, 0.1, 0.24), rail)]
+    for x in (-2.6, 2.6):
+        parts.append((box((x, 2.0, 0), (0.16, 2.0, 0.16)), dark))
+    return parts
+
+
+PROPS = {"loopring": (loopring, (560, 520), 10.5, (0, 3.6, 0), 10),
+"brachio": (brachio, (620, 520), 10.5, (0, 3.4, 0.2), 4),
          "fern": (fern, (220, 160), 2.6, (0, 0.6, 0), 8),
          "girder": (girder, (120, 520), 6.6, (0, 0, 0), 4),
          "beacon": (beacon, (90, 230), 2.6, (0, 1.2, 0), 6),
@@ -101,7 +127,7 @@ PROPS = {"brachio": (brachio, (620, 520), 10.5, (0, 3.4, 0.2), 4),
          "rockarch": (rockarch, (560, 380), 7.0, (0, 2.0, 0), 4)}
 
 
-YAW = {"brachio": 90}
+YAW = {"brachio": 90, "loopring": 38}
 
 
 def render_prop(name):

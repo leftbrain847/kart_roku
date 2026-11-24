@@ -51,7 +51,7 @@ function SpriteWidths() as Object
         kart: 0.95, car: 0.90, block: 0.52, shell: 0.38, banana: 0.36, boost: 0.30
         tree: 1.2, pine: 1.1, cactus: 0.7, rock: 1.4, lamp: 0.5, building: 2.8, palm: 1.5, pylon: 0.4
         lavarock: 1.4, autumn: 1.3, fence: 1.7, crystal: 0.9
-        racer: 1.05, brachio: 10, fern: 1.6, girder: 0.9, beacon: 0.35, lighthouse: 2.4, umbrella: 1.8, rockarch: 9.5
+        racer: 1.05, loopring: 9.5, brachio: 10, fern: 1.6, girder: 0.9, beacon: 0.35, lighthouse: 2.4, umbrella: 1.8, rockarch: 9.5
     }
 end function
 
@@ -66,19 +66,22 @@ function MixColor(a as Integer, b as Integer, t as Float) as Integer
     return (r << 24) or (g << 16) or (bl << 8) or 255
 end function
 
-' Courses for the showcase worlds: curves, hills (rise), tubes and corkscrew rolls. Rises add up to 0.
+'' Courses: curves, hills (`rise`, adding up to 0 per lap), banked turns (`bank` degrees), tubes, barrel rolls
+' (`roll: 360`) and loops (`loop: true`). Loops and rolls sit outside the split zones. Every track has one.
 function WorldCourse(name as String) as Dynamic
     if name = "jungle" then
         return { sections: [
             { len: 150, curve: 0 }, { len: 200, curve: 0.6, rise: 6 }, { len: 150, curve: -0.9, rise: -9 }
-            { len: 220, curve: 0, rise: 3 }, { len: 360, curve: -0.4 }, { len: 200, curve: 0.9, rise: -5 }
-            { len: 220, curve: 0.3, rise: 5 }, { len: 300, curve: -0.5 }
+            { len: 220, curve: 0, rise: 3 }, { len: 360, curve: -0.4 }, { len: 200, curve: 0.9, rise: -5, bank: 14 }
+            { len: 220, curve: 0.3, rise: 5 }, { len: 100, curve: -0.5 }, { len: 150, curve: 0, roll: 360 }
+            { len: 50, curve: 0 }
         ] }
     else if name = "skytrack" then
         return { sections: [
             { len: 150, curve: 0 }, { len: 150, curve: 0.5, rise: 4 }, { len: 200, curve: 0, tube: true }
-            { len: 180, curve: 0, roll: 360 }, { len: 150, curve: -0.7, rise: -4 }, { len: 200, curve: 0.6, rise: 6 }
-            { len: 250, curve: -0.3, rise: -6 }, { len: 200, curve: 0, tube: true }, { len: 320, curve: 0.4 }
+            { len: 180, curve: 0, roll: 360 }, { len: 150, curve: -0.7, rise: -4, bank: -16 }, { len: 200, curve: 0.6, rise: 6 }
+            { len: 250, curve: -0.3, rise: -6 }, { len: 200, curve: 0, tube: true }, { len: 30, curve: 0 }
+            { len: 170, curve: 0, loop: true }, { len: 120, curve: 0.4 }
         ], forks: [
             { start: 760, openLen: 60, length: 300, closeLen: 60, gap: 4.0, splits: [2]
               names: ["UPPER", "LOWER"], speedMults: [1.0, 1.0] }
@@ -86,11 +89,34 @@ function WorldCourse(name as String) as Dynamic
     else if name = "pebble" then
         return { sections: [
             { len: 150, curve: 0 }, { len: 250, curve: 0.5, rise: 5 }, { len: 150, curve: -0.6, rise: -5 }
-            { len: 300, curve: 0.3 }, { len: 250, curve: -0.8, rise: 4 }, { len: 200, curve: 0.4, rise: -4 }
-            { len: 500, curve: -0.2 }
+            { len: 300, curve: 0.3 }, { len: 250, curve: -0.8, rise: 4, bank: -14 }, { len: 200, curve: 0.4, rise: -4 }
+            { len: 300, curve: -0.2 }, { len: 160, curve: 0, loop: true }, { len: 40, curve: 0 }
         ] }
     end if
-    return invalid
+    ' Classic road themes take one of two layouts, mirrored on every other theme.
+    names = ThemeNames()
+    idx = -1
+    for i = 0 to names.Count() - 1
+        if names[i] = name then idx = i
+    end for
+    if idx < 0 then return invalid
+    m = 1
+    if (idx \ 2) mod 2 = 1 then m = -1
+    if idx mod 2 = 0 then
+        ' Rollercoaster: a loop early, a big drop into the first split, a banked sweeper, a barrel roll home.
+        return { sections: [
+            { len: 120, curve: 0 }, { len: 130, curve: 0.5 * m, rise: 5 }, { len: 150, curve: 0, loop: true }
+            { len: 20, curve: 0 }, { len: 280, curve: -0.6 * m, rise: -8 }, { len: 200, curve: 0.4 * m, rise: 6 }
+            { len: 260, curve: -0.3 * m, rise: -3 }, { len: 240, curve: 0.7 * m, bank: 14 * m }
+            { len: 200, curve: -0.5 * m }, { len: 150, curve: 0, roll: 360 * m }, { len: 50, curve: 0 }
+        ] }
+    end if
+    ' Valley: a climb and a sudden drop, a long banked bend, rolling hills, a loop to finish.
+    return { sections: [
+        { len: 100, curve: 0 }, { len: 200, curve: 0.4 * m, rise: 7 }, { len: 120, curve: 0, rise: -7 }
+        { len: 460, curve: -0.5 * m, rise: 4, bank: -12 * m }, { len: 40, curve: 0 }, { len: 240, curve: 0.8 * m, rise: -6 }
+        { len: 440, curve: -0.4 * m, rise: 2 }, { len: 150, curve: 0, loop: true }, { len: 50, curve: 0 }
+    ] }
 end function
 
 ' Names shown on the title screen.
