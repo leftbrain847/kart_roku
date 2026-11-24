@@ -5,12 +5,6 @@
 function SpriteDefs() as Object
     black = &h1A1A1AFF
     return {
-        kart: { w: 0.78, h: 0.52, rects: [
-            [0.02, 0.55, 0.20, 0.42, black], [0.78, 0.55, 0.20, 0.42, black]
-            [0.10, 0.40, 0.80, 0.42, &hE0322EFF], [0.18, 0.30, 0.64, 0.16, &hB8241FFF]
-            [0.34, 0.00, 0.32, 0.36, &hFFD23FFF], [0.38, 0.12, 0.24, 0.10, &h222A55FF]
-            [0.04, 0.82, 0.92, 0.08, &h8C1A16FF], [0.40, 0.62, 0.20, 0.10, &hF2F2F2FF]
-        ] }
         car: { w: 0.86, h: 0.66, rects: [
             [0.04, 0.78, 0.18, 0.22, black], [0.78, 0.78, 0.18, 0.22, black]
             [0.02, 0.40, 0.96, 0.44, &h2D6CDFFF], [0.14, 0.06, 0.72, 0.40, &h2457B8FF]
@@ -43,6 +37,17 @@ function SpriteDefs() as Object
     }
 end function
 
+' A kart in any body color; the shading is a translucent overlay so one definition serves every kart.
+function KartDef(body as Integer) as Object
+    black = &h1A1A1AFF
+    return { w: 0.78, h: 0.52, rects: [
+        [0.02, 0.55, 0.20, 0.42, black], [0.78, 0.55, 0.20, 0.42, black]
+        [0.10, 0.40, 0.80, 0.42, body], [0.18, 0.30, 0.64, 0.16, body], [0.18, 0.30, 0.64, 0.16, &h00000050]
+        [0.34, 0.00, 0.32, 0.36, &hFFD23FFF], [0.38, 0.12, 0.24, 0.10, &h222A55FF]
+        [0.04, 0.82, 0.92, 0.08, body], [0.04, 0.82, 0.92, 0.08, &h00000070], [0.40, 0.62, 0.20, 0.10, &hF2F2F2FF]
+    ] }
+end function
+
 ' Draw one sprite definition into a new bitmap at `ppu` pixels per world unit.
 function DrawSpriteBitmap(def as Object, ppu as Float) as Object
     w = Int(def.w * ppu + 0.5)
@@ -64,13 +69,18 @@ function DrawSpriteBitmap(def as Object, ppu as Float) as Object
     return { bmp: bmp, w: w, h: h }
 end function
 
-' Every sprite at cfg.render.spriteLevels geometric scales, plus the kart at its fixed on-screen scale.
+' Every sprite at cfg.render.spriteLevels geometric scales (one kart per body color: kart0 = you, kart1.. = bots),
+' plus your kart at its fixed on-screen scale.
 function BuildSprites(cfg as Object) as Object
     rc = cfg.render
     levels = rc.spriteLevels
     logRatio = Log(rc.maxPpu / rc.minPpu) / (levels - 1)
     out = { levels: levels, logRatio: logRatio, minPpu: rc.minPpu, byName: {} }
     defs = SpriteDefs()
+    defs["kart0"] = KartDef(cfg.colors.player)
+    for i = 0 to cfg.bots.count - 1
+        defs["kart" + (i + 1).ToStr()] = KartDef(cfg.bots.bodies[i])
+    end for
     for each name in defs
         arr = []
         for j = 0 to levels - 1
@@ -78,7 +88,7 @@ function BuildSprites(cfg as Object) as Object
         end for
         out.byName[name] = arr
     end for
-    out.player = DrawSpriteBitmap(defs.kart, cfg.camera.k / cfg.camera.playerDepth)
+    out.player = DrawSpriteBitmap(defs.kart0, cfg.camera.k / cfg.camera.playerDepth)
     out.hudItems = {}
     for each name in ["shell", "banana", "boost"]
         out.hudItems[name] = DrawSpriteBitmap(defs[name], 150)

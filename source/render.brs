@@ -1,5 +1,5 @@
-' Fake-3D drawing with Draw2D: the road as horizontal bands of rectangles, objects as pre-scaled bitmaps
-' copied far-to-nearD. Everything that depends only on the screen row is computed once in NewRenderer.
+' Fake-3D drawing with Draw2D: the road as horizontal bands of rectangles, bent by the course curves, and objects
+' as pre-scaled bitmaps copied far-to-near. Everything that depends only on the screen row is computed once.
 
 function NewRenderer(cfg as Object, screen as Object) as Object
     cam = cfg.camera
@@ -20,6 +20,15 @@ function NewRenderer(cfg as Object, screen as Object) as Object
             y = y + h
         end while
     end for
+    ' Screen row (from the horizon) -> band index, for placing sprites on the bent road.
+    rowBand = []
+    bandX = []
+    for i = 0 to bands.Count() - 1
+        bandX.Push(0)
+        for rr = 1 to bands[i].h
+            rowBand.Push(i)
+        end for
+    end for
     reg = CreateObject("roFontRegistry")
     hills = []
     for i = 0 to 11
@@ -29,12 +38,42 @@ function NewRenderer(cfg as Object, screen as Object) as Object
         screen: screen
         cfg: cfg
         bands: bands
+        bandX: bandX
+        rowBand: rowBand
         sprites: BuildSprites(cfg)
         hills: hills
         fontS: reg.GetDefaultFont(26, false, false)
         fontM: reg.GetDefaultFont(34, true, false)
         fontL: reg.GetDefaultFont(56, true, false)
+        fontXL: reg.GetDefaultFont(110, true, false)
     }
+end function
+
+' How far the road centre has bent sideways at each band, integrating the curves from the camera outward.
+sub BendRoad(r as Object, s as Object)
+    cfg = s.cfg
+    scale = cfg.course.curveScale
+    maxD = cfg.track.drawDist
+    x = 0.0
+    slope = 0.0
+    prevD = 0.0
+    for i = r.bands.Count() - 1 to 0 step -1
+        d = r.bands[i].d
+        if d > maxD then d = maxD
+        dd = d - prevD
+        slope = slope + CurveAt(cfg, s.camZ + d) * scale * dd
+        x = x + slope * dd
+        r.bandX[i] = x
+        prevD = d
+    end for
+end sub
+
+' Sideways bend of the road at depth d.
+function BendAt(r as Object, s as Object, d as Float) as Float
+    row = Int(s.cfg.camera.height * s.cfg.camera.k / d)
+    if row < 0 then row = 0
+    if row >= r.rowBand.Count() then row = r.rowBand.Count() - 1
+    return r.bandX[r.rowBand[row]]
 end function
 
 sub DrawFrame(r as Object, s as Object)
@@ -49,7 +88,7 @@ sub DrawFrame(r as Object, s as Object)
     ' Sky and parallax hills.
     scr.DrawRect(0, 0, W, hy \ 2, c.skyHigh)
     scr.DrawRect(0, hy \ 2, W, hy - hy \ 2, c.sky)
-    shift = Int(s.camX * 12)
+    shift = Int(s.camX * 12 + s.bgX * 400)
     for each hl in r.hills
         hx = ((hl.x - shift) mod 2040 + 2040) mod 2040 - 200
         scr.DrawRect(hx, hy - hl.h, hl.w, hl.h, c.hillsFar)
@@ -58,27 +97,31 @@ sub DrawFrame(r as Object, s as Object)
     scr.DrawRect(0, hy, W, H - hy, c.grassDark)
 
     ' Road bands.
+    BendRoad(r, s)
     stripeLen = cfg.track.stripeLen
     n = cfg.lanes.count
     half = n / 2.0
-    for each b in r.bands
+    for i = 0 to r.bands.Count() - 1
+        b = r.bands[i]
         sPos = s.camZ + b.d
         stripe = Int(sPos / stripeLen) and 1
         if stripe = 1 then scr.DrawRect(0, b.y, W, b.h, c.grassLight)
-        fork = ForkAt(cfg, TrackPos(cfg, sPos))
+        camX = s.camX - r.bandX[i]
+        sm = TrackPos(cfg, sPos)
+        fork = ForkAt(cfg, sm)
         if fork = invalid then
-            DrawRoadPiece(scr, c, b, cx, s.camX, -half, half, n, stripe)
+            DrawRoadPiece(scr, c, b, cx, camX, -half, half, n, stripe)
         else
-            g = ForkGap(fork, TrackPos(cfg, sPos)) / 2
-            mid = -half + fork.split
-            DrawRoadPiece(scr, c, b, cx, s.camX, -half - g, mid - g, fork.split, stripe)
-            DrawRoadPiece(scr, c, b, cx, s.camX, mid + g, half + g, n - fork.split, stripe)
+            for each pc in RoadPieces(cfg, sm)
+                DrawRoadPiece(scr, c, b, cx, camX, pc.x0, pc.x1, pc.lanes, stripe)
+            end for
         end if
     end for
 
     DrawObjects(r, s, cx, hy)
     DrawHud(r, s)
     if s.paused then DrawPause(r, s)
+    if s.finished then DrawResults(r, s)
 end sub
 
 sub DrawRoadPiece(scr as Object, c as Object, b as Object, cx as Float, camX as Float, x0 as Float, x1 as Float, lanes as Integer, stripe as Integer)
@@ -103,7 +146,7 @@ sub DrawRoadPiece(scr as Object, c as Object, b as Object, cx as Float, camX as 
     end if
 end sub
 
-' Trees, item blocks, traffic, shells, bananas and the kart, painted far to nearD.
+' Trees, item blocks, traffic, shells, bananas and karts, painted far to near.
 sub DrawObjects(r as Object, s as Object, cx as Float, hy as Integer)
     cfg = s.cfg
     nearD = cfg.camera.nearDepth
@@ -118,15 +161,12 @@ sub DrawObjects(r as Object, s as Object, cx as Float, hy as Integer)
         d = tpos - s.camZ
         if d > nearD then
             sm = TrackPos(cfg, tpos)
-            edge = n / 2.0 + 1.1
-            fork = ForkAt(cfg, sm)
-            if fork <> invalid then
-                g = ForkGap(fork, sm)
-                edge = edge + g / 2
-                if g > 2.0 then list.Push({ d: d, x: -n / 2.0 + fork.split, k: "tree" })
-            end if
-            list.Push({ d: d, x: -edge, k: "tree" })
-            list.Push({ d: d, x: edge, k: "tree" })
+            pieces = RoadPieces(cfg, sm)
+            list.Push({ d: d, x: pieces[0].x0 - 1.1, k: "tree", h: 0 })
+            list.Push({ d: d, x: pieces[pieces.Count() - 1].x1 + 1.1, k: "tree", h: 0 })
+            for j = 1 to pieces.Count() - 1
+                if pieces[j].x0 - pieces[j - 1].x1 > 2.0 then list.Push({ d: d, x: (pieces[j].x0 + pieces[j - 1].x1) / 2, k: "tree", h: 0 })
+            end for
         end if
         tpos = tpos + every
     end while
@@ -137,22 +177,32 @@ sub DrawObjects(r as Object, s as Object, cx as Float, hy as Integer)
             d = lapBase + rep * L + s.rows[i] - s.camZ
             if d > nearD and d < far then
                 for lane = 0 to n - 1
-                    if s.blocks[i][lane] <= s.time then list.Push({ d: d, x: LaneX(cfg, lane, s.rows[i], -1), k: "block" })
+                    if s.blocks[i][lane] <= s.time then list.Push({ d: d, x: LaneXi(cfg, lane, s.rows[i]), k: "block", h: 0 })
                 end for
             end if
         end for
     end for
 
     for each car in s.traffic
-        list.Push({ d: car.s - s.camZ, x: ObjX(s, car.lane, car.s), k: "car" })
+        list.Push({ d: car.s - s.camZ, x: ObjX(s, car.lane, car.s), k: "car", h: 0 })
     end for
     for each sh in s.shots
-        list.Push({ d: sh.s - s.camZ, x: ObjX(s, sh.lane, sh.s), k: "shell" })
+        list.Push({ d: sh.s - s.camZ, x: ObjX(s, sh.lane, sh.s), k: "shell", h: 0 })
     end for
     for each bn in s.hazards
-        list.Push({ d: bn.s - s.camZ, x: ObjX(s, bn.lane, bn.s), k: "banana" })
+        list.Push({ d: bn.s - s.camZ, x: ObjX(s, bn.lane, bn.s), k: "banana", h: 0 })
     end for
-    list.Push({ d: cfg.camera.playerDepth, x: PlayerX(s), k: "player" })
+    for each kt in s.karts
+        hop = 0
+        if kt.jumpT > 0 then hop = Sin(3.14159 * kt.jumpT / cfg.lanes.jumpTime) * cfg.lanes.jumpHeight
+        wob = 0
+        if kt.spinT > 0 then wob = Sin(kt.spinT * 40) * 0.12
+        if kt.isBot then
+            list.Push({ d: kt.s - s.camZ, x: KartX(s, kt) + wob, k: "kart" + kt.id.ToStr(), h: hop })
+        else
+            list.Push({ d: cfg.camera.playerDepth, x: KartX(s, kt) + wob, k: "player", h: hop })
+        end if
+    end for
 
     list.SortBy("d", "r")
     spr = r.sprites
@@ -161,11 +211,13 @@ sub DrawObjects(r as Object, s as Object, cx as Float, hy as Integer)
     for each o in list
         if o.d > nearD and o.d < far then
             ppu = k / o.d
+            sx = cx + (o.x - s.camX + BendAt(r, s, o.d)) * ppu
+            sy = hy + (camH - o.h) * ppu
             if o.k = "player" then
-                DrawKart(r, s, cx + (o.x - s.camX) * ppu, hy + camH * ppu)
+                DrawKart(r, s, sx, sy)
             else
                 img = spr.byName[o.k][SpriteLevel(spr, ppu)]
-                r.screen.DrawObject(cx + (o.x - s.camX) * ppu - img.w / 2, hy + camH * ppu - img.h, img.bmp)
+                r.screen.DrawObject(sx - img.w / 2, sy - img.h, img.bmp)
             end if
         end if
     end for
@@ -174,7 +226,6 @@ end sub
 sub DrawKart(r as Object, s as Object, x as Float, y as Float)
     p = s.player
     img = r.sprites.player
-    if p.spinT > 0 then x = x + Sin(p.spinT * 40) * 18
     if p.boostT > 0 then
         flick = Int(s.time * 30) and 1
         r.screen.DrawRect(x - 34, y - 14, 20, 18 + flick * 10, &hFF7A1AFF)
@@ -197,11 +248,14 @@ end sub
 sub DrawHud(r as Object, s as Object)
     c = s.cfg.colors
     W = s.cfg.screen.w
+    H = s.cfg.screen.h
     p = s.player
-    Txt(r, "LAP " + s.lap.ToStr(), 48, 30, c.hudAccent, r.fontM)
-    Txt(r, FormatTime(s.time - s.lapStart), 48, 72, c.hud, r.fontM)
-    Txt(r, "BEST " + FormatTime(s.best), 48, 116, c.hud, r.fontS)
-    Txt(r, "LAST " + FormatTime(s.lastLap), 48, 148, c.hud, r.fontS)
+    laps = s.cfg.race.laps
+    lapText = "LAP " + s.lap.ToStr()
+    if laps > 0 then lapText = lapText + "/" + laps.ToStr()
+    Txt(r, Ordinal(Position(s, p)) + "/" + s.karts.Count().ToStr(), 48, 24, c.hudAccent, r.fontL)
+    Txt(r, lapText + "   " + FormatTime(s.time - s.lapStart), 48, 92, c.hud, r.fontM)
+    Txt(r, "BEST " + FormatTime(s.best) + "   LAST " + FormatTime(s.lastLap), 48, 136, c.hud, r.fontS)
 
     ' Item slot, top right.
     r.screen.DrawRect(W - 170, 30, 120, 120, c.panel)
@@ -214,19 +268,41 @@ sub DrawHud(r as Object, s as Object)
     end if
 
     kmh = Int(p.speed * s.cfg.speed.kmhPerUnit)
-    Txt(r, kmh.ToStr() + " km/h", 48, s.cfg.screen.h - 66, c.hud, r.fontM)
-    if not s.trafficOn then Txt(r, "TRAFFIC OFF", W - 230, s.cfg.screen.h - 56, c.hud, r.fontS)
-    if p.routeName <> "" then TxtCentered(r, p.routeName, 30, c.hudAccent, r.fontS)
+    Txt(r, kmh.ToStr() + " km/h", 48, H - 66, c.hud, r.fontM)
+    if not s.trafficOn then Txt(r, "TRAFFIC OFF", W - 230, H - 56, c.hud, r.fontS)
+    name = TrackName(s.cfg, p.lane, TrackPos(s.cfg, p.s))
+    if name <> "" then TxtCentered(r, name, 30, c.hudAccent, r.fontS)
 
     fork = ForkAhead(s, 160)
     if fork <> invalid then
-        a = fork.routes[0].name + " < lanes 1-" + fork.split.ToStr()
-        b = "lanes " + (fork.split + 1).ToStr() + "-" + s.cfg.lanes.count.ToStr() + " > " + fork.routes[1].name
-        TxtCentered(r, "FORK AHEAD", 70, c.hudAccent, r.fontM)
-        TxtCentered(r, a + "   |   " + b, 112, c.hud, r.fontS)
+        TxtCentered(r, "TRACKS SPLIT AHEAD", 70, c.hudAccent, r.fontM)
+        TxtCentered(r, SplitLabel(s.cfg, fork), 112, c.hud, r.fontS)
     end if
-    if s.msgT > 0 and s.msg <> "" then TxtCentered(r, s.msg, 180, c.hudAccent, r.fontL)
+    if s.countdown > 0 then
+        TxtCentered(r, (Int(s.countdown) + 1).ToStr(), 250, c.hudAccent, r.fontXL)
+    else if s.msgT > 0 and s.msg <> "" then
+        TxtCentered(r, s.msg, 180, c.hudAccent, r.fontL)
+    end if
 end sub
+
+' "CANYON 1-2  |  COAST 3-5" (lanes numbered from 1 on screen)
+function SplitLabel(cfg as Object, fork as Object) as String
+    bounds = [0]
+    for each sp in fork.splits
+        bounds.Push(sp)
+    end for
+    bounds.Push(cfg.lanes.count)
+    out = ""
+    for j = 0 to fork.names.Count() - 1
+        a = bounds[j] + 1
+        b = bounds[j + 1]
+        lanes = a.ToStr()
+        if b > a then lanes = lanes + "-" + b.ToStr()
+        if j > 0 then out = out + "   |   "
+        out = out + fork.names[j] + " " + lanes
+    end for
+    return out
+end function
 
 sub DrawPause(r as Object, s as Object)
     c = s.cfg.colors
@@ -246,4 +322,17 @@ sub DrawPause(r as Object, s as Object)
         TxtCentered(r, label, 290 + i * 58, col, r.fontM)
     end for
     TxtCentered(r, "OK select   PLAY resume   BACK exit", 610, c.hud, r.fontS)
+end sub
+
+sub DrawResults(r as Object, s as Object)
+    c = s.cfg.colors
+    W = s.cfg.screen.w
+    H = s.cfg.screen.h
+    r.screen.DrawRect(0, 0, W, H, &h00000090)
+    r.screen.DrawRect(W / 2 - 260, 150, 520, 420, c.panel)
+    TxtCentered(r, "FINISHED " + Ordinal(s.finishPos), 180, c.hudAccent, r.fontL)
+    TxtCentered(r, "RACE " + FormatTime(s.raceTime), 280, c.hud, r.fontM)
+    TxtCentered(r, "BEST LAP " + FormatTime(s.best), 335, c.hud, r.fontM)
+    TxtCentered(r, "JUMPS " + s.stats.jumps.ToStr() + "   HITS " + s.stats.shellHits.ToStr(), 390, c.hud, r.fontS)
+    TxtCentered(r, "OK race again   BACK exit", 500, c.hudAccent, r.fontS)
 end sub

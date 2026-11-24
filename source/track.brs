@@ -1,4 +1,4 @@
-' Track geometry: lap position, forks and lane x positions. Pure functions (no screen), unit-tested.
+' Track geometry: lap position, curves, split zones and lane x positions. Pure functions (no screen), unit-tested.
 
 ' Position within the current lap, 0 <= result < track length.
 function TrackPos(cfg as Object, s as Float) as Float
@@ -10,7 +10,7 @@ function ForkEnd(fork as Object) as Float
     return fork.start + fork.openLen + fork.length + fork.closeLen
 end function
 
-' The fork covering lap position sm, or invalid on a single road.
+' The split zone covering lap position sm, or invalid on a single road.
 function ForkAt(cfg as Object, sm as Float) as Dynamic
     for each fork in cfg.forks
         if sm >= fork.start and sm < ForkEnd(fork) then return fork
@@ -18,7 +18,7 @@ function ForkAt(cfg as Object, sm as Float) as Dynamic
     return invalid
 end function
 
-' Width of the grass median at lap position sm inside a fork: opens, holds, closes.
+' Width of each gap at lap position sm inside a split zone: opens, holds, closes.
 function ForkGap(fork as Object, sm as Float) as Float
     t = sm - fork.start
     if t < 0 then return 0
@@ -29,41 +29,96 @@ function ForkGap(fork as Object, sm as Float) as Float
     return fork.gap * rest / fork.closeLen
 end function
 
-' Which route (0 or 1) a lane belongs to at a fork.
-function RouteOfLane(fork as Object, lane as Integer) as Integer
-    if lane < fork.split then return 0
-    return 1
+' Which track group (0..splits) a lane is in.
+function GroupOfLane(fork as Object, lane as Integer) as Integer
+    g = 0
+    for each sp in fork.splits
+        if lane >= sp then g = g + 1
+    end for
+    return g
 end function
 
-' Lanes you can steer between while on a route: [first, last].
-function RouteLanes(cfg as Object, fork as Object, route as Integer) as Object
-    if route = 0 then return [0, fork.split - 1]
-    return [fork.split, cfg.lanes.count - 1]
+' Name of the track a lane is on at sm ("" outside split zones).
+function TrackName(cfg as Object, lane as Integer, sm as Float) as String
+    fork = ForkAt(cfg, sm)
+    if fork = invalid then return ""
+    return fork.names[GroupOfLane(fork, lane)]
 end function
 
-' World x of a lane centre (laneF may be fractional while sliding). side: 0/1 = which route, -1 = from the lane.
-function LaneX(cfg as Object, laneF as Float, sm as Float, side as Integer) as Float
-    x = laneF - (cfg.lanes.count - 1) / 2.0
+' Is there an open gap between lanes a and a+1 at sm?
+function GapBetween(cfg as Object, a as Integer, sm as Float) as Float
+    fork = ForkAt(cfg, sm)
+    if fork = invalid then return 0
+    if GroupOfLane(fork, a) = GroupOfLane(fork, a + 1) then return 0
+    return ForkGap(fork, sm)
+end function
+
+' World x of a whole lane's centre at lap position sm.
+function LaneXi(cfg as Object, lane as Integer, sm as Float) as Float
+    x = lane - (cfg.lanes.count - 1) / 2.0
     fork = ForkAt(cfg, sm)
     if fork = invalid then return x
-    if side < 0 then side = RouteOfLane(fork, Int(laneF + 0.5))
-    g = ForkGap(fork, sm)
-    if side = 0 then return x - g / 2
-    return x + g / 2
+    k = fork.splits.Count()
+    return x + (GroupOfLane(fork, lane) - k / 2.0) * ForkGap(fork, sm)
 end function
 
-' Road surface at lap position sm, as pieces {x0, x1, lanes}: one piece, or two inside a fork.
+' World x of a (possibly fractional, mid-slide) lane position.
+function LaneX(cfg as Object, laneF as Float, sm as Float) as Float
+    a = Int(laneF)
+    if a >= cfg.lanes.count - 1 then return LaneXi(cfg, cfg.lanes.count - 1, sm)
+    if a < 0 then return LaneXi(cfg, 0, sm)
+    f = laneF - a
+    xa = LaneXi(cfg, a, sm)
+    if f <= 0 then return xa
+    return xa + (LaneXi(cfg, a + 1, sm) - xa) * f
+end function
+
+' Road surface at lap position sm, as pieces {x0, x1, lanes, first}: one piece, or one per track group in a split.
 function RoadPieces(cfg as Object, sm as Float) as Object
     n = cfg.lanes.count
     half = n / 2.0
     fork = ForkAt(cfg, sm)
-    if fork = invalid then return [{ x0: -half, x1: half, lanes: n }]
-    g = ForkGap(fork, sm) / 2
-    mid = -half + fork.split
-    return [
-        { x0: -half - g, x1: mid - g, lanes: fork.split }
-        { x0: mid + g, x1: half + g, lanes: n - fork.split }
-    ]
+    if fork = invalid then return [{ x0: -half, x1: half, lanes: n, first: 0 }]
+    g = ForkGap(fork, sm)
+    k = fork.splits.Count()
+    bounds = [0]
+    for each sp in fork.splits
+        bounds.Push(sp)
+    end for
+    bounds.Push(n)
+    pieces = []
+    for j = 0 to k
+        off = (j - k / 2.0) * g
+        pieces.Push({ x0: bounds[j] - half + off, x1: bounds[j + 1] - half + off, lanes: bounds[j + 1] - bounds[j], first: bounds[j] })
+    end for
+    return pieces
+end function
+
+' Builds cfg.course.table: the curve at every whole unit of the lap, eased in and out of each section.
+sub PrepareCourse(cfg as Object)
+    if cfg.course.DoesExist("table") then return
+    curveTab = []
+    ease = cfg.course.easeLen
+    for each sec in cfg.course.sections
+        for u = 0 to sec.len - 1
+            f = 1.0
+            if ease > 0 then
+                if u < ease then f = u / ease
+                if sec.len - u < ease then f = (sec.len - u) / ease
+                if f > 1 then f = 1
+            end if
+            curveTab.Push(sec.curve * f)
+        end for
+    end for
+    while curveTab.Count() < cfg.track.length
+        curveTab.Push(0)
+    end while
+    cfg.course.table = curveTab
+end sub
+
+' Curve (before curveScale) at track position s.
+function CurveAt(cfg as Object, s as Float) as Float
+    return cfg.course.table[Int(TrackPos(cfg, s))]
 end function
 
 ' Problems with a config, as readable strings. Empty array = valid.
@@ -76,13 +131,24 @@ function ValidateConfig(cfg as Object) as Object
     for i = 0 to cfg.forks.Count() - 1
         f = cfg.forks[i]
         tag = "forks[" + i.ToStr() + "]"
-        if f.start <= prevEnd then errs.Push(tag + " starts before the previous fork ends (or at 0)")
+        if f.start <= prevEnd then errs.Push(tag + " starts before the previous split zone ends (or at 0)")
         if ForkEnd(f) >= L then errs.Push(tag + " must rejoin before the lap ends")
-        if f.split < 1 or f.split > n - 1 then errs.Push(tag + ".split must leave at least one lane per route")
+        last = 0
+        for each sp in f.splits
+            if sp <= last or sp > n - 1 then errs.Push(tag + ".splits must rise between 1 and lanes.count-1")
+            last = sp
+        end for
+        if f.splits.Count() = 0 then errs.Push(tag + ".splits needs at least one split")
         if f.openLen <= 0 or f.closeLen <= 0 then errs.Push(tag + " openLen/closeLen must be > 0")
-        if f.routes.Count() <> 2 then errs.Push(tag + " needs exactly 2 routes")
+        groups = f.splits.Count() + 1
+        if f.names.Count() <> groups or f.speedMults.Count() <> groups then errs.Push(tag + " needs one name and speedMult per track group")
         prevEnd = ForkEnd(f)
     end for
+    total = 0
+    for each sec in cfg.course.sections
+        total = total + sec.len
+    end for
+    if total <> L then errs.Push("course.sections lengths must add up to track.length")
     if cfg.forkSpeedMode <> "carry" and cfg.forkSpeedMode <> "perRoute" then errs.Push("forkSpeedMode must be carry or perRoute")
     total = 0
     for each k in cfg.items.odds
@@ -90,6 +156,7 @@ function ValidateConfig(cfg as Object) as Object
         total = total + cfg.items.odds[k]
     end for
     if total <= 0 then errs.Push("items.odds must have a positive total")
+    if cfg.bots.count > cfg.bots.names.Count() or cfg.bots.count > cfg.bots.bodies.Count() then errs.Push("bots need a name and body color each")
     rows = 0
     for each b in cfg.render.bands
         rows = rows + b[0]

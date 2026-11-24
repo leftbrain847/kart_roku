@@ -1,6 +1,6 @@
 {
   "name": "kart_roku",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Kart: a fake-3D lane racer for Roku (BrightScript, roScreen/Draw2D)",
   "directories": {
     "test": "tests"

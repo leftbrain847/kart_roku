@@ -23,20 +23,23 @@ test('game rules: unit tests in the simulator', () => {
   const m = out.match(/RESULT pass=(\d+) fail=(\d+)/);
   assert.ok(m, out);
   assert.equal(m[2], '0', out);
-  assert.ok(Number(m[1]) >= 50, out);
+  assert.ok(Number(m[1]) >= 75, out);
 });
 
 test('the built zip runs a scripted race end to end', () => {
   const zip = build();
   const out = run(bin('brs-cli'), ['-n', '-k', 'autotest=1', zip]);
   assert.match(out, /AUTOTEST OK/, out);
-  const line = out.match(/AUTOTEST frames=(\d+) dist=(\d+) items=(\d+) boosts=\d+ routes=(\S*) traffic=(\w+)/);
+  const line = out.match(/AUTOTEST frames=(\d+) dist=(\d+) items=(\d+) jumps=(\d+) karts=(\d+) botItems=(\d+) tracks=(.*?)traffic=(\w+)/);
   assert.ok(line, out);
-  assert.equal(line[1], '600');
-  assert.ok(Number(line[2]) > 500, 'kart auto-accelerated down the track');
+  assert.equal(line[1], '700');
+  assert.ok(Number(line[2]) > 450, 'karts auto-accelerate after the countdown');
   assert.ok(Number(line[3]) >= 1, 'picked up an item block');
-  assert.equal(line[4], 'CANYON', 'left lanes took the left route at the first fork');
-  assert.equal(line[5], 'off', 'pause menu toggled traffic off');
+  assert.ok(Number(line[4]) >= 1, 'jumped across a split');
+  assert.equal(line[5], '4', 'you plus 3 bots');
+  assert.ok(Number(line[6]) >= 1, 'bots picked up items');
+  assert.match(line[7], /CANYON COAST/, 'took the left track, then jumped to the right one');
+  assert.equal(line[8], 'off', 'pause menu toggled traffic off');
 });
 
 test('the zip passes the security gate', () => {
