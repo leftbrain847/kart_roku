@@ -70,3 +70,11 @@ test('manifest version and package config agree', () => {
   for (const k of CONFIG.manifestRequired) assert.match(manifest, new RegExp(`^${k}=\\S`, 'm'));
   assert.equal(CONFIG.zipName, 'kart_roku.zip');
 });
+
+test('build refuses symlinks in packaged folders', async () => {
+  const { symlinkSync, cpSync } = await import('node:fs');
+  const root = mkdtempSync(join(tmpdir(), 'pkg-'));
+  for (const p of CONFIG.include) cpSync(join(ROOT, p), join(root, p), { recursive: true });
+  symlinkSync('/etc/hostname', join(root, 'source', 'leak.brs'));
+  assert.throws(() => collect(root), /symlinks are not allowed/);
+});
