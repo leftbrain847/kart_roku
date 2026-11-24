@@ -1,0 +1,31 @@
+{
+  "name": "kart_roku",
+  "version": "1.0.1",
+  "description": "Kart: a fake-3D lane racer for Roku (BrightScript, roScreen/Draw2D)",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check-package.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leftbrain847/kart_roku.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/leftbrain847/kart_roku/issues"
+  },
+  "homepage": "https://github.com/leftbrain847/kart_roku#readme",
+  "devDependencies": {
+    "brighterscript": "0.73.8",
+    "brs-node": "2.7.1"
+  },
+  "private": true,
+  "type": "module",
+  "overrides": {
+    "decode-uri-component": "0.5.1"
+  }
+}
