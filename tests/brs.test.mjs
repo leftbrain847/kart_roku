@@ -19,11 +19,11 @@ test('BrightScript passes the brighterscript compiler checks', () => {
 });
 
 test('game rules: unit tests in the simulator', () => {
-  const out = run(bin('brs-cli'), ['-n', 'tests/logic_test.brs', 'source/config.brs', 'source/track.brs', 'source/game.brs']);
+  const out = run(bin('brs-cli'), ['-n', 'tests/logic_test.brs', 'source/config.brs', 'source/track.brs', 'source/game.brs', 'source/themes.brs']);
   const m = out.match(/RESULT pass=(\d+) fail=(\d+)/);
   assert.ok(m, out);
   assert.equal(m[2], '0', out);
-  assert.ok(Number(m[1]) >= 75, out);
+  assert.ok(Number(m[1]) >= 100, out);
 });
 
 test('the built zip runs a scripted race end to end', () => {
@@ -40,6 +40,7 @@ test('the built zip runs a scripted race end to end', () => {
   assert.ok(Number(line[6]) >= 1, 'bots picked up items');
   assert.match(line[7], /CANYON COAST/, 'took the left track, then jumped to the right one');
   assert.equal(line[8], 'off', 'pause menu toggled traffic off');
+  assert.match(out, /AUTOTEST WORLDS jungle skytrack pebble/, 'hills, tube and corkscrew worlds render');
 });
 
 test('the zip passes the security gate', () => {
