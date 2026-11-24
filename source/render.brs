@@ -30,18 +30,32 @@ function NewRenderer(cfg as Object, screen as Object) as Object
         end for
     end for
     reg = CreateObject("roFontRegistry")
-    hills = []
-    for i = 0 to 11
-        hills.Push({ x: i * 170 - 120, w: 150 + (i * 53) mod 140, h: 30 + (i * 37) mod 60 })
+    theme = Themes()[cfg.themeName]
+    ' Each band's colors, blended toward the sky color by distance once here (fog costs nothing per frame).
+    fc = cfg.fog
+    for each b in bands
+        t = (b.d - fc.start) / (fc.end - fc.start)
+        if t < 0 then t = 0
+        if t > 1 then t = 1
+        t = t * fc.max
+        b.ground = [MixColor(theme.ground[0], theme.fog, t), MixColor(theme.ground[1], theme.fog, t)]
+        b.road = [MixColor(theme.road[0], theme.fog, t), MixColor(theme.road[1], theme.fog, t)]
+        b.rumble = [MixColor(theme.rumble[0], theme.fog, t), MixColor(theme.rumble[1], theme.fog, t)]
+        b.lane = MixColor(theme.lane, theme.fog, t)
+        if theme.DoesExist("rightGround") then b.right = [MixColor(theme.rightGround[0], theme.fog, t), MixColor(theme.rightGround[1], theme.fog, t)]
     end for
+    art = "pkg:/images/sprites/"
     return {
+        theme: theme
+        sky: CreateObject("roBitmap", art + "sky_" + cfg.themeName + ".png")
+        far: CreateObject("roBitmap", art + "far_" + cfg.themeName + ".png")
+        near: CreateObject("roBitmap", art + "near_" + cfg.themeName + ".png")
         screen: screen
         cfg: cfg
         bands: bands
         bandX: bandX
         rowBand: rowBand
         sprites: BuildSprites(cfg)
-        hills: hills
         fontS: reg.GetDefaultFont(26, false, false)
         fontM: reg.GetDefaultFont(34, true, false)
         fontL: reg.GetDefaultFont(56, true, false)
@@ -85,35 +99,34 @@ sub DrawFrame(r as Object, s as Object)
     hy = cfg.screen.horizonY
     cx = W / 2
 
-    ' Sky and parallax hills.
-    scr.DrawRect(0, 0, W, hy \ 2, c.skyHigh)
-    scr.DrawRect(0, hy \ 2, W, hy - hy \ 2, c.sky)
-    shift = Int(s.camX * 12 + s.bgX * 400)
-    for each hl in r.hills
-        hx = ((hl.x - shift) mod 2040 + 2040) mod 2040 - 200
-        scr.DrawRect(hx, hy - hl.h, hl.w, hl.h, c.hillsFar)
-        scr.DrawRect(hx + 40, hy - hl.h \ 2, hl.w, hl.h \ 2, c.hills)
-    end for
-    scr.DrawRect(0, hy, W, H - hy, c.grassDark)
+    ' Sky art, then two parallax ridges that slide with the curves and with sideways moves.
+    scr.DrawObject(0, 0, r.sky)
+    DrawRidge(scr, r.far, s.camX * 6 + s.bgX * 200, hy)
+    DrawRidge(scr, r.near, s.camX * 14 + s.bgX * 450, hy)
 
-    ' Road bands.
+    ' Road bands: ground, then the road pieces, each in this band's fogged colors.
     BendRoad(r, s)
     stripeLen = cfg.track.stripeLen
     n = cfg.lanes.count
     half = n / 2.0
+    lanes = r.theme.laneStyle
     for i = 0 to r.bands.Count() - 1
         b = r.bands[i]
         sPos = s.camZ + b.d
         stripe = Int(sPos / stripeLen) and 1
-        if stripe = 1 then scr.DrawRect(0, b.y, W, b.h, c.grassLight)
+        scr.DrawRect(0, b.y, W, b.h, b.ground[stripe])
         camX = s.camX - r.bandX[i]
         sm = TrackPos(cfg, sPos)
         fork = ForkAt(cfg, sm)
         if fork = invalid then
-            DrawRoadPiece(scr, c, b, cx, camX, -half, half, n, stripe)
+            DrawRoadPiece(scr, b, cx, camX, -half, half, n, stripe, lanes)
+            if b.DoesExist("right") then
+                rx = cx + (half - camX) * b.ppu + 0.14 * b.ppu + 1
+                if rx < W then scr.DrawRect(rx + 2 * b.ppu, b.y, W - rx, b.h, b.right[stripe])
+            end if
         else
             for each pc in RoadPieces(cfg, sm)
-                DrawRoadPiece(scr, c, b, cx, camX, pc.x0, pc.x1, pc.lanes, stripe)
+                DrawRoadPiece(scr, b, cx, camX, pc.x0, pc.x1, pc.lanes, stripe, lanes)
             end for
         end if
     end for
@@ -124,24 +137,29 @@ sub DrawFrame(r as Object, s as Object)
     if s.finished then DrawResults(r, s)
 end sub
 
-sub DrawRoadPiece(scr as Object, c as Object, b as Object, cx as Float, camX as Float, x0 as Float, x1 as Float, lanes as Integer, stripe as Integer)
+sub DrawRidge(scr as Object, bmp as Object, shift as Float, hy as Integer)
+    if bmp = invalid then return
+    w = bmp.GetWidth()
+    x = -(Int(shift) mod w)
+    if x > 0 then x = x - w
+    y = hy - bmp.GetHeight()
+    scr.DrawObject(x, y, bmp)
+    if x + w < 1280 then scr.DrawObject(x + w, y, bmp)
+end sub
+
+sub DrawRoadPiece(scr as Object, b as Object, cx as Float, camX as Float, x0 as Float, x1 as Float, lanes as Integer, stripe as Integer, laneStyle as String)
     ppu = b.ppu
     sx0 = cx + (x0 - camX) * ppu
     sx1 = cx + (x1 - camX) * ppu
     rw = 0.14 * ppu + 1
-    rc = c.rumbleA
-    road = c.road
-    if stripe = 1 then
-        rc = c.rumbleB
-        road = c.roadAlt
-    end if
+    rc = b.rumble[stripe]
     scr.DrawRect(sx0 - rw, b.y, rw, b.h, rc)
     scr.DrawRect(sx1, b.y, rw, b.h, rc)
-    scr.DrawRect(sx0, b.y, sx1 - sx0, b.h, road)
-    if stripe = 0 then
+    scr.DrawRect(sx0, b.y, sx1 - sx0, b.h, b.road[stripe])
+    if laneStyle = "solid" or (laneStyle = "dash" and stripe = 0) then
         lw = 0.05 * ppu + 1
         for j = 1 to lanes - 1
-            scr.DrawRect(sx0 + j * ppu - lw / 2, b.y, lw, b.h, c.lane)
+            scr.DrawRect(sx0 + j * ppu - lw / 2, b.y, lw, b.h, b.lane)
         end for
     end if
 end sub
@@ -162,10 +180,14 @@ sub DrawObjects(r as Object, s as Object, cx as Float, hy as Integer)
         if d > nearD then
             sm = TrackPos(cfg, tpos)
             pieces = RoadPieces(cfg, sm)
-            list.Push({ d: d, x: pieces[0].x0 - 1.1, k: "tree", h: 0 })
-            list.Push({ d: d, x: pieces[pieces.Count() - 1].x1 + 1.1, k: "tree", h: 0 })
+            idx = Int(tpos / every)
+            kinds = r.theme.scenery
+            kind = kinds[idx mod kinds.Count()]
+            gap = r.theme.gap
+            list.Push({ d: d, x: pieces[0].x0 - gap, k: kind, h: 0 })
+            if not r.theme.DoesExist("rightGround") then list.Push({ d: d, x: pieces[pieces.Count() - 1].x1 + gap, k: kinds[(idx + 1) mod kinds.Count()], h: 0 })
             for j = 1 to pieces.Count() - 1
-                if pieces[j].x0 - pieces[j - 1].x1 > 2.0 then list.Push({ d: d, x: (pieces[j].x0 + pieces[j - 1].x1) / 2, k: "tree", h: 0 })
+                if pieces[j].x0 - pieces[j - 1].x1 > 2.0 then list.Push({ d: d, x: (pieces[j].x0 + pieces[j - 1].x1) / 2, k: kinds[0], h: 0 })
             end for
         end if
         tpos = tpos + every
@@ -216,8 +238,11 @@ sub DrawObjects(r as Object, s as Object, cx as Float, hy as Integer)
             if o.k = "player" then
                 DrawKart(r, s, sx, sy)
             else
-                img = spr.byName[o.k][SpriteLevel(spr, ppu)]
-                r.screen.DrawObject(sx - img.w / 2, sy - img.h, img.bmp)
+                lv = spr.byName[o.k]
+                if lv <> invalid then
+                    img = lv[SpriteLevel(spr, ppu)]
+                    r.screen.DrawObject(sx - img.w / 2, sy - img.h, img.bmp)
+                end if
             end if
         end if
     end for

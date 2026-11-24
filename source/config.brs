@@ -120,6 +120,7 @@ function GameConfig() as Object
             spriteLevels: 30    ' pre-scaled copies per sprite
             minPpu: 3           ' smallest scale (px per unit)
             maxPpu: 240         ' largest scale
+            maxSpritePx: 420    ' a pre-scaled copy never exceeds this many px (texture memory on the stick)
         }
 
         colors: {
@@ -130,6 +131,10 @@ function GameConfig() as Object
             hud: &hFFFFFFFF, hudShadow: &h000000C0, hudAccent: &hFFD23FFF, panel: &h0B0F23C8
             player: &hE0322EFF
         }
+
+        kartStyle: "classic"     ' one of KartStyles(): classic f1 monster bubble hover frog robot buggy muscle soapbox
+        themeName: "meadow"      ' one of ThemeNames() in themes.brs: the road, sky and scenery look
+        fog: { start: 25, end: 150, max: 0.8 }   ' road colors blend toward the sky color with distance
 
         bestKey: "best_lap_ms"   ' registry key for the best lap
         maxDt: 0.1               ' clamp long frames so the sim never jumps
