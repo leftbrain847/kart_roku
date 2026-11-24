@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Build the Roku sideload zip: dist/kart_roku.zip with manifest, source/ and images/ at the zip root.
 //   node scripts/build.mjs
-import { readFileSync, readdirSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, lstatSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { makeZip } from './zip.mjs';
@@ -10,7 +10,9 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const CONFIG = JSON.parse(readFileSync(join(ROOT, 'scripts', 'package.config.json'), 'utf8'));
 
 function walk(abs) {
-  if (statSync(abs).isFile()) return [abs];
+  const st = lstatSync(abs);
+  if (st.isSymbolicLink()) throw new Error(`${abs}: symlinks are not allowed in the package`);
+  if (st.isFile()) return [abs];
   return readdirSync(abs).sort().flatMap((n) => walk(join(abs, n)));
 }
 
