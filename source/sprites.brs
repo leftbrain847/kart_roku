@@ -65,6 +65,12 @@ function BuildSprites(cfg as Object) as Object
         end for
     end if
     if cfg.course.DoesExist("loops") and cfg.course.loops.Count() > 0 then props.Push("loopring")
+    if cfg.course.DoesExist("jumps") and cfg.course.jumps.Count() > 0 then props.Push("ramp")
+    if cfg.course.DoesExist("tunnels") then
+        for each tn in cfg.course.tunnels
+            if tn.style <> "steel" then props.Push("portal_" + tn.style)
+        end for
+    end if
     for each name in props
         list[name] = { path: dir + name + ".png", w: widths[name] }
     end for

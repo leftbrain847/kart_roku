@@ -31,7 +31,7 @@ function NewKart(cfg as Object, id as Integer, name as String, lane as Integer, 
     return {
         id: id, name: name, isBot: id > 0, body: body
         s: startS, lane: lane, laneF: lane, speed: cfg.speed.start, skill: skill
-        boostT: 0, spinT: 0, jumpT: 0, airT: 0, item: ""
+        boostT: 0, spinT: 0, jumpT: 0, airT: 0, airDur: 1, airH: 0, item: ""
         think: 0, holdT: 0
     }
 end function
@@ -214,7 +214,12 @@ sub SetTraffic(s as Object, onOff as Boolean)
     if not onOff then s.traffic = []
 end sub
 
-'' In the air from a lane jump or off a crest: no steering, no pickups, clears hazards.
+function MaxF(a as Float, b as Float) as Float
+    if a > b then return a
+    return b
+end function
+
+' In the air from a lane jump or off a crest: no steering, no pickups, clears hazards.
 function Airborne(k as Object) as Boolean
     return k.jumpT > 0 or k.airT > 0
 end function
@@ -392,10 +397,26 @@ sub MoveKart(s as Object, k as Object, dt as Float)
         if k.speed < top then k.speed = top
     end if
     k.s = k.s + k.speed * dt
-    ' Airtime: fast over a sharp crest, the kart leaves the road for a moment.
+    ' Airtime: off a jump ramp every kart flies the gap; fast over a sharp crest it leaves the road briefly.
     ac = cfg.air
+    smA = TrackPos(cfg, k.s - k.speed * dt)
+    smB = TrackPos(cfg, k.s)
+    for each j in cfg.course.jumps
+        if Crossed(smA, smB, j.at) then
+            k.airDur = (j.len + 4) / MaxF(k.speed, ac.minJumpSpeed)
+            k.airT = k.airDur
+            k.airH = ac.jumpHeight
+            if k.speed < ac.minJumpSpeed then k.speed = ac.minJumpSpeed
+            if not k.isBot then
+                s.stats.airs = s.stats.airs + 1
+                Say(s, "BIG AIR!")
+            end if
+        end if
+    end for
     if k.airT <= 0 and k.speed >= ac.minSpeed and CrestAt(cfg, k.s) < ac.crest and Abs(RollAt(cfg, k.s)) < 20 then
         k.airT = ac.time
+        k.airDur = ac.time
+        k.airH = ac.height
         if not k.isBot then s.stats.airs = s.stats.airs + 1
     end if
     slide = dt / cfg.lanes.changeTime

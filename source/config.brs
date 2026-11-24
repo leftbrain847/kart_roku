@@ -17,6 +17,8 @@ function GameConfig() as Object
             minSpeed: 18        ' ...if you're at least this fast
             time: 0.5           ' seconds in the air
             height: 0.9         ' how high (units)
+            jumpHeight: 2.6     ' peak height flying a jump's gap
+            minJumpSpeed: 14    ' karts slower than this are given this speed at the ramp so they clear the gap
         }
 
         race: {
@@ -142,10 +144,10 @@ function GameConfig() as Object
 
         themeName: "jungle"      ' the track: a world or road theme from Themes() in themes.brs
         ' Racers: art is racer_<name>_<c|l|r>.png. racers[0] is you, the rest are the bots.
-        roster: ["hatchling", "triceracart", "toaster", "gearsnail", "hermit", "jelly"]
+        roster: ["hatchling", "triceracart", "toaster", "gearsnail", "hermit", "jelly", "teapot", "duckboat"]
         racers: ["hatchling", "triceracart", "toaster", "hermit"]
         ' Tracks offered on the title screen, in order: the three worlds, then the classic road themes.
-        tracks: ["jungle", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
+        tracks: ["whirligig", "jungle", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
         fog: { start: 25, end: 150, max: 0.8 }   ' road colors blend toward the sky color with distance
 
         bestKey: "best_lap_ms"   ' registry key for the best lap

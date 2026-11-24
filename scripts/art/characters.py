@@ -170,8 +170,58 @@ def jelly():
     return parts
 
 
+def teapot():
+    """A porcelain teapot on wheels, lid rattling, steam puffing from its spout."""
+    china = Mat((240, 244, 250), spec=0.9, shine=70, rim=0.5)
+    blue = Mat((60, 110, 210), spec=0.7, shine=50, rim=0.4)
+    gold = Mat((235, 190, 80), spec=0.9, shine=80, metal=True)
+    steam = Mat((255, 255, 255), spec=0.1, rim=0.2, glow=0.4)
+    eye = Mat((30, 30, 40), spec=0.9, shine=80)
+    parts = [
+        (ellipsoid((0, 0.72, 0), (0.55, 0.45, 0.55)), china),
+        (cyl_y((0, 0.72, 0), 0.56, 0.06), blue),
+        (cyl_y((0, 0.5, 0), 0.5, 0.04), blue),
+        (ellipsoid((0, 1.15, 0), (0.32, 0.1, 0.32)), china),
+        (sphere((0, 1.3, 0), 0.08), gold),
+        (cone_cap((0.45, 0.75, 0.25), (0.82, 1.05, 0.5), 0.12, 0.05), china),
+        (blend(0.05, capsule((-0.5, 0.95, -0.05), (-0.75, 0.85, -0.1), 0.06), capsule((-0.75, 0.85, -0.1), (-0.55, 0.5, -0.05), 0.06)), china),
+        (sphere((0.9, 1.22, 0.6), 0.12), steam), (sphere((0.98, 1.42, 0.62), 0.16), steam), (sphere((0.92, 1.66, 0.58), 0.2), steam),
+        (sphere((-0.17, 0.82, -0.52), 0.06), eye), (sphere((0.17, 0.82, -0.52), 0.06), eye),
+    ] + wheels(xs=0.42, zf=0.35, zb=-0.35, y=0.13, R=0.12, r=0.05, tire=Mat((60, 110, 210), spec=0.5), hub=gold)
+    return parts
+
+
+def duckboat():
+    """A rubber duck driving a clawfoot bathtub, a shower head for a spoiler."""
+    duck = Mat((255, 215, 50), spec=0.6, shine=40, rim=0.5)
+    beak = Mat((255, 130, 40), spec=0.5, shine=30)
+    tub = Mat((248, 248, 252), spec=0.9, shine=70, rim=0.4)
+    chrome = Mat((200, 205, 215), spec=1.0, shine=90, metal=True)
+    water = Mat((120, 200, 255), spec=0.9, shine=80, glow=0.2)
+    bubble = Mat((230, 245, 255), spec=0.9, shine=90, rim=0.8)
+    eye = Mat((20, 20, 20), spec=0.9, shine=80)
+    body = cut(ellipsoid((0, 0.62, 0), (0.62, 0.36, 0.85)), box((0, 1.0, 0), (1, 0.38, 1)))
+    body = cut(body, ellipsoid((0, 0.7, 0), (0.54, 0.3, 0.77)))
+    parts = [
+        (body, tub),
+        (box((0, 0.6, 0), (0.54, 0.02, 0.76), 0.02), water),
+        (blend(0.1, ellipsoid((0, 0.78, 0.05), (0.3, 0.22, 0.34)), sphere((0, 1.08, 0.18), 0.2)), duck),
+        (cone_cap((0, 1.06, 0.36), (0, 1.03, 0.5), 0.09, 0.05), beak),
+        (sphere((-0.1, 1.15, 0.1), 0.035), eye), (sphere((0.1, 1.15, 0.1), 0.035), eye),
+        (capsule((0.3, 0.62, -0.8), (0.3, 1.25, -0.8), 0.035), chrome),
+        (capsule((0.3, 1.25, -0.8), (0.1, 1.3, -0.65), 0.035), chrome),
+        (cyl_y((0.05, 1.27, -0.6), 0.12, 0.03), chrome),
+        (sphere((-0.35, 0.75, -0.5), 0.1), bubble), (sphere((-0.48, 0.82, -0.3), 0.07), bubble), (sphere((0.42, 0.8, 0.4), 0.09), bubble),
+    ]
+    for x in (-0.48, 0.48):
+        for z in (0.55, -0.55):
+            parts.append((capsule((x, 0.35, z), (x * 1.15, 0.12, z * 1.05), 0.05), chrome))
+            parts.append((sphere((x * 1.18, 0.1, z * 1.06), 0.1), chrome))
+    return parts
+
+
 CHARACTERS = {"hatchling": hatchling, "triceracart": triceracart, "toaster": toaster, "gearsnail": gearsnail,
-              "hermit": hermit, "jelly": jelly}
+              "hermit": hermit, "jelly": jelly, "teapot": teapot, "duckboat": duckboat}
 ANGLES = {"c": 0, "l": -24, "r": 24}   # camera yaw: centre, leaning left, leaning right
 
 

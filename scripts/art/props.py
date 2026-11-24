@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 
-from sdf3d import Mat, blend, box, capsule, cone_cap, crop, cut, cyl_y, ellipsoid, render, sphere
+from sdf3d import Mat, blend, box, capsule, cone_cap, crop, cut, cyl_x, cyl_y, ellipsoid, render, sphere
 
 
 def brachio():
@@ -117,7 +117,67 @@ def loopring():
     return parts
 
 
-PROPS = {"loopring": (loopring, (560, 520), 10.5, (0, 3.6, 0), 10),
+def portal(rock, dark, cap=None):
+    """A mountain with an arched tunnel mouth the road drives into."""
+    def build():
+        m = Mat(rock, spec=0.2, shine=10, rim=0.3)
+        mount = blend(0.8, ellipsoid((0, 2.5, 1.5), (5.5, 4.2, 3.0)), ellipsoid((-3.2, 1.8, 1.8), (3.0, 3.0, 2.6)),
+                      ellipsoid((3.4, 2.0, 1.6), (3.2, 3.4, 2.6)), cone_cap((0.6, 3.5, 1.6), (1.2, 7.8, 2.2), 2.6, 0.4))
+        mouth = lambda p: np.maximum(np.abs(p[:, 2] - 1.0) - 6.0, np.minimum(
+            np.maximum(np.abs(p[:, 0]) - 3.1, np.abs(p[:, 1] - 1.4) - 1.4),
+            np.sqrt(p[:, 0] ** 2 + (p[:, 1] - 2.8) ** 2) - 3.1))
+        parts = [(cut(mount, mouth), m)]
+        parts.append((box((0, 2.0, 3.0), (3.0, 2.0, 0.2)), Mat(dark, spec=0.1, rim=0.0)))
+        if cap:
+            parts.append((cut(ellipsoid((1.0, 7.4, 2.1), (1.6, 0.8, 1.6)), box((0, 5.6, 0), (9, 1.6, 9))), Mat(cap, spec=0.6, rim=0.5)))
+        return parts
+    return build
+
+
+def ramp():
+    """A launch ramp with chevrons, spanning the road."""
+    steel = Mat((210, 214, 224), spec=0.8, shine=60, metal=True)
+    red = Mat((230, 60, 50), spec=0.5, shine=40)
+    white = Mat((250, 250, 250), spec=0.5)
+    wedge = lambda p: np.maximum(box((0, 0.6, 0), (2.7, 0.6, 1.2))(p), (p[:, 1] - 0.05) - (p[:, 2] + 1.2) * 0.5)
+    parts = [(wedge, steel)]
+    for i, x in enumerate((-2.0, -1.0, 0.0, 1.0, 2.0)):
+        parts.append((box((x, 0.45 + 0.02, -0.2), (0.35, 0.08, 0.5)), red if i % 2 == 0 else white))
+    return parts
+
+
+def swirltree():
+    """A corkscrew candy-striped trunk with a puffball top."""
+    a = Mat((250, 120, 170), spec=0.5, shine=30, rim=0.5)
+    b = Mat((255, 250, 240), spec=0.5, shine=30, rim=0.5)
+    top = Mat((150, 220, 240), spec=0.4, rim=0.6)
+    parts = []
+    for i in range(14):
+        t = i / 14
+        x = 0.45 * math.sin(t * 7)
+        parts.append((sphere((x, 0.25 + t * 4.2, 0), 0.32 - 0.1 * t), a if i % 2 else b))
+    parts.append((blend(0.3, sphere((0.4, 4.9, 0), 0.9), sphere((-0.4, 5.2, 0.2), 0.7), sphere((0.2, 5.6, -0.1), 0.6)), top))
+    return parts
+
+
+def teacup():
+    """A giant teacup on its saucer."""
+    china = Mat((250, 246, 240), spec=0.9, shine=70, rim=0.5)
+    rim = Mat((230, 90, 140), spec=0.7, shine=50)
+    tea = Mat((170, 100, 50), spec=0.9, shine=80)
+    cup = cut(blend(0.3, cyl_y((0, 1.5, 0), 1.4, 1.1), ellipsoid((0, 0.6, 0), (1.2, 0.6, 1.2))), cyl_y((0, 1.8, 0), 1.25, 1.0))
+    return [(cyl_y((0, 0.1, 0), 2.2, 0.1), china), (cup, china), (cyl_y((0, 2.55, 0), 1.42, 0.06), rim),
+            (cyl_y((0, 2.2, 0), 1.25, 0.03), tea),
+            (cut(sphere((1.7, 1.6, 0), 0.6), sphere((1.7, 1.6, 0), 0.4)), china)]
+
+
+PROPS = {"portal_rock": (portal((150, 130, 110), (24, 20, 18)), (620, 560), 13, (0, 3.8, 0), 6),
+         "portal_snow": (portal((150, 150, 165), (24, 24, 30), cap=(250, 252, 255)), (620, 560), 13, (0, 3.8, 0), 6),
+         "portal_candy": (portal((240, 150, 200), (60, 20, 50), cap=(255, 255, 255)), (620, 560), 13, (0, 3.8, 0), 6),
+         "ramp": (ramp, (420, 200), 6.2, (0, 0.5, 0), 14),
+         "swirltree": (swirltree, (220, 460), 6.0, (0, 3.0, 0), 4),
+         "teacup": (teacup, (380, 300), 5.0, (0, 1.3, 0), 10),
+"loopring": (loopring, (560, 520), 10.5, (0, 3.6, 0), 10),
 "brachio": (brachio, (620, 520), 10.5, (0, 3.4, 0.2), 4),
          "fern": (fern, (220, 160), 2.6, (0, 0.6, 0), 8),
          "girder": (girder, (120, 520), 6.6, (0, 0, 0), 4),

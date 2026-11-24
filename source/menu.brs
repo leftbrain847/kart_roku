@@ -15,7 +15,7 @@ function RunMenu(screen as Object, port as Object, cfg as Object, sel as Object)
     while true
         key = sel.track.ToStr() + "/" + sel.racer.ToStr()
         if key <> loaded then
-            sky = CreateObject("roBitmap", "pkg:/images/sprites/sky_" + tracks[sel.track] + ".png")
+            sky = CreateObject("roBitmap", "pkg:/images/sprites/sky_" + tracks[sel.track] + ".jpg")
             pic = CreateObject("roBitmap", "pkg:/images/sprites/racer_" + roster[sel.racer] + "_c.png")
             loaded = key
         end if

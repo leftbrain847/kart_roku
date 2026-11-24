@@ -94,21 +94,27 @@ function RoadPieces(cfg as Object, sm as Float) as Object
     return pieces
 end function
 
-'' Builds the course tables, one entry per whole unit of the lap:
+' Builds the course tables, one entry per whole unit of the lap:
 '   curve  - eased in and out of each section
 '   elev   - road height; a section's `rise` eases it up or down; a `loop` section adds a hump that rises
 '            and falls back (the climb up the loop's wall and the drop out of it)
 '   roll   - camera roll in degrees: `roll` sweeps 0 -> roll (a barrel roll is 360), `bank` tilts into a bend
 '            and back out, and a `loop` flips you through the top (0 -> 360)
-'   tube   - inside a tube
-' cfg.course.loops lists where each loop starts, so the renderer can show the loop structure ahead.
+'   tube   - tube or tunnel style at that unit ("" = open air): `tube: true` is a steel tube, `tunnel: "rock"`
+'            (or snow, candy, steel) is a tunnel bored into a mountain
+'   gap    - a `jump` section: the road is missing; karts launch off a ramp at its start and land past it
+' cfg.course.loops, .tunnels and .jumps list where each starts, so the renderer can show the loop, the
+' mountain's tunnel mouth and the ramp ahead.
 sub PrepareCourse(cfg as Object)
     if cfg.course.DoesExist("table") then return
     curveTab = []
     elevTab = []
     rollTab = []
     tubeTab = []
+    gapTab = []
     loops = []
+    tunnels = []
+    jumps = []
     ease = cfg.course.easeLen
     elev = 0.0
     at = 0
@@ -119,7 +125,14 @@ sub PrepareCourse(cfg as Object)
         if sec.DoesExist("roll") then roll = sec.roll
         bank = 0
         if sec.DoesExist("bank") then bank = sec.bank
-        tube = sec.DoesExist("tube") and sec.tube
+        tube = ""
+        if sec.DoesExist("tube") and sec.tube then tube = "steel"
+        if sec.DoesExist("tunnel") then
+            tube = sec.tunnel
+            tunnels.Push({ at: at, style: tube })
+        end if
+        gap = sec.DoesExist("jump") and sec.jump
+        if gap then jumps.Push({ at: at, len: sec.len })
         isLoop = sec.DoesExist("loop") and sec.loop
         hump = 0
         if isLoop then
@@ -140,6 +153,7 @@ sub PrepareCourse(cfg as Object)
             elevTab.Push(elev + rise * (1 - Cos(3.14159265 * t)) / 2 + hump * sw * sw)
             rollTab.Push(roll * (1 - Cos(3.14159265 * t)) / 2 + bank * f)
             tubeTab.Push(tube)
+            gapTab.Push(gap)
         end for
         elev = elev + rise
         at = at + sec.len
@@ -148,13 +162,17 @@ sub PrepareCourse(cfg as Object)
         curveTab.Push(0)
         elevTab.Push(elev)
         rollTab.Push(0)
-        tubeTab.Push(false)
+        tubeTab.Push("")
+        gapTab.Push(false)
     end while
     cfg.course.table = curveTab
     cfg.course.elev = elevTab
     cfg.course.roll = rollTab
     cfg.course.tube = tubeTab
+    cfg.course.gap = gapTab
     cfg.course.loops = loops
+    cfg.course.tunnels = tunnels
+    cfg.course.jumps = jumps
 end sub
 
 ' How sharply the road crests at s (negative = cresting); used for airtime.
@@ -182,7 +200,17 @@ function RollAt(cfg as Object, s as Float) as Float
 end function
 
 function TubeAt(cfg as Object, s as Float) as Boolean
+    return cfg.course.tube[Int(TrackPos(cfg, s))] <> ""
+end function
+
+' Tube or tunnel style at s: "steel", "rock", "snow", "candy" or "" in the open.
+function TubeStyle(cfg as Object, s as Float) as String
     return cfg.course.tube[Int(TrackPos(cfg, s))]
+end function
+
+' Is the road missing here (the gap of a jump)?
+function GapAt(cfg as Object, s as Float) as Boolean
+    return cfg.course.gap[Int(TrackPos(cfg, s))]
 end function
 
 ' Problems with a config, as readable strings. Empty array = valid.

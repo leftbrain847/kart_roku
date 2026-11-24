@@ -40,7 +40,7 @@ test('the built zip runs a scripted race end to end', () => {
   assert.ok(Number(line[6]) >= 1, 'bots picked up items');
   assert.match(line[7], /CANYON COAST/, 'took the left track, then jumped to the right one');
   assert.equal(line[8], 'off', 'pause menu toggled traffic off');
-  assert.match(out, /AUTOTEST WORLDS jungle skytrack pebble meadow/, 'hills, tube, corkscrew, loop and banked turns render');
+  assert.match(out, /AUTOTEST WORLDS jungle skytrack pebble meadow whirligig snow/, 'hills, tubes, tunnels, jumps, corkscrew, loops and banked turns render');
 });
 
 test('the zip passes the security gate', () => {

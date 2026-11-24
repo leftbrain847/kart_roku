@@ -1,60 +1,61 @@
-' Renders design options through the real renderer; prints each frame as base64 PNG.
+' Stages screenshots through the real renderer and prints each frame as a base64 PNG ("SHOT name data").
+' Run from a package folder holding manifest, images/ and source/ (without main.brs) plus this file:
+'   npx brs-cli -n -r PKG PKG/source/*.brs [-k only=name]
 sub Main(args as Dynamic)
     screen = CreateObject("roScreen", true, 1280, 720)
     screen.SetAlphaEnable(true)
-    reg = CreateObject("roFontRegistry")
-    font = reg.GetDefaultFont(30, true, false)
-    which = "all"
-    if type(args) = "roAssociativeArray" and args.which <> invalid then which = args.which
-    styles = KartStyles()
-    themes = ThemeNames()
-    if which = "all" or which = "karts" then
-        for i = 0 to styles.Count() - 1
-            Shot(screen, font, styles[i], "meadow", 170, "kart_" + (i + 1).ToStr(), "KART " + (i + 1).ToStr() + "/10  " + UCase(styles[i]), true)
-        end for
-    end if
-    if which = "all" or which = "roads" then
-        for i = 0 to themes.Count() - 1
-            Shot(screen, font, "classic", themes[i], 468, "road_" + (i + 1).ToStr(), "ROAD " + (i + 1).ToStr() + "/10  " + UCase(themes[i]), false)
-        end for
-    end if
+    font = CreateObject("roFontRegistry").GetDefaultFont(30, true, false)
+    only = ""
+    if type(args) = "roAssociativeArray" and args.only <> invalid then only = args.only
+    shots = [
+        { w: "whirligig", r: "teapot", at: 172, sim: 0.1, name: "whirl_1", label: "WHIRLIGIG WOODS  candy mountain" }
+        { w: "whirligig", r: "teapot", at: 262, sim: 0.1, name: "whirl_2", label: "WHIRLIGIG WOODS  inside the tunnel" }
+        { w: "whirligig", r: "teapot", at: 557, sim: 0.45, name: "whirl_3", label: "WHIRLIGIG WOODS  big air" }
+        { w: "whirligig", r: "teapot", at: 1515, sim: 0.1, name: "whirl_4", label: "WHIRLIGIG WOODS  barrel roll" }
+        { w: "whirligig", r: "duckboat", at: 1572, sim: 0.1, name: "whirl_5", label: "WHIRLIGIG WOODS  loop ahead" }
+        { w: "meadow", r: "gearsnail", at: 286, sim: 0.1, name: "meadow_loop", label: "GREEN MEADOW  up the loop" }
+        { w: "jungle", r: "hatchling", at: 852, sim: 0.1, name: "jungle_tunnel", label: "FERNBACK JUNGLE  into the volcano" }
+        { w: "jungle", r: "triceracart", at: 557, sim: 0.4, name: "jungle_jump", label: "FERNBACK JUNGLE  river jump" }
+        { w: "snow", r: "jelly", at: 736, sim: 0.1, name: "snow_tunnel", label: "SNOW PASS  mountain tunnel" }
+        { w: "skytrack", r: "toaster", at: 927, sim: 0.45, name: "sky_jump", label: "GIRDER SKY  platform jump" }
+    ]
+    for each sh in shots
+        if only = "" or Instr(1, sh.name, only) > 0 then Shot(screen, font, sh)
+    end for
 end sub
 
-sub Shot(screen as Object, font as Object, style as String, theme as String, at as Float, name as String, label as String, inset as Boolean)
+sub Shot(screen as Object, font as Object, sh as Object)
     cfg = GameConfig()
-    cfg.kartStyle = style
-    cfg.themeName = theme
+    SetupRace(cfg, sh.w, sh.r)
     cfg.race.countdown = 0
     cfg.traffic.perSecond = 0
     r = NewRenderer(cfg, screen)
     s = NewGame(cfg, 42)
-    lanes = [2, 1, 3, 4]
-    gaps = [0, 3.2, 5.5, 9]
-    for i = 0 to s.karts.Count() - 1
+    p = s.player
+    p.s = sh.at
+    p.speed = cfg.speed.max
+    p.item = "boost"
+    lanes = [1, 3, 0]
+    gaps = [7, 11, 17]
+    for i = 1 to s.karts.Count() - 1
         k = s.karts[i]
-        k.s = at + gaps[i]
-        k.lane = lanes[i]
-        k.laneF = lanes[i]
+        k.lane = lanes[i - 1]
+        k.laneF = k.lane
+        k.s = sh.at + gaps[i - 1]
         k.speed = cfg.speed.max
         k.skill = 1
         k.think = 99
     end for
-    s.player.item = "shell"
-    s.traffic.Push({ s: at + 40, lane: 0, v: 12 })
     s.camX = PlayerX(s)
-    UpdateGame(s, 0.05)
-    s.camX = PlayerX(s)
+    n = Int(sh.sim * 30 + 0.5)
+    for f = 1 to n
+        UpdateGame(s, 1 / 30)
+    end for
     for pass = 1 to 2
         DrawFrame(r, s)
-        if inset then
-            src = CreateObject("roBitmap", "pkg:/images/sprites/kart_" + style + "_0.png")
-            sc = 300 / src.GetWidth()
-            screen.DrawRect(940, 190, 320, 20 + src.GetHeight() * sc, &h0B0F23A0)
-            screen.DrawScaledObject(950, 200, sc, sc, src)
-        end if
-        screen.DrawRect(380, 650, 520, 52, &h0B0F23C8)
-        screen.DrawText(label, 400, 658, &hFFD23FFF, font)
-        if pass = 2 then print "SHOT " + name + " " + screen.GetPng(0, 0, 1280, 720).ToBase64String()
+        screen.DrawRect(340, 650, 600, 52, &h0B0F23C8)
+        screen.DrawText(sh.label, 360, 658, &hFFD23FFF, font)
+        if pass = 2 then print "SHOT " + sh.name + " " + screen.GetPng(0, 0, 1280, 720).ToBase64String()
         screen.SwapBuffers()
     end for
 end sub

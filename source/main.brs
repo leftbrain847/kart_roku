@@ -124,9 +124,9 @@ sub RunAutotest(screen as Object, shots as Boolean)
     if not s.trafficOn then traffic = "off"
     print "AUTOTEST frames=" + frames.ToStr() + " dist=" + Int(s.player.s).ToStr() + " items=" + s.stats.items.ToStr() + " jumps=" + s.stats.jumps.ToStr() + " karts=" + s.karts.Count().ToStr() + " botItems=" + s.stats.botItems.ToStr() + " tracks=" + tracks + "traffic=" + traffic + " ms=" + ms.ToStr()
 
-    stops = { jungle: [210, 300, 480], skytrack: [190, 350, 590], pebble: [300, 360, 1205], meadow: [240, 325, 1300, 1675] }
+    stops = { jungle: [210, 300, 480, 560, 900], skytrack: [190, 350, 590, 935], pebble: [300, 360, 700, 1205], meadow: [240, 325, 770, 1010, 1300, 1675], whirligig: [190, 300, 565, 1500, 1680], snow: [770] }
     done = ""
-    for each w in ["jungle", "skytrack", "pebble", "meadow"]
+    for each w in ["jungle", "skytrack", "pebble", "meadow", "whirligig", "snow"]
         c2 = GameConfig()
         SetupRace(c2, w, "toaster")
         r2 = NewRenderer(c2, screen)
