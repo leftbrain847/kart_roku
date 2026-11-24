@@ -1,0 +1,5 @@
+{
+  "seconds": 9,
+  "selector": "#tv",
+  "steps": [{ "wait": 400 }, { "start": true }]
+}
