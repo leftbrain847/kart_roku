@@ -48,7 +48,7 @@ sub DrawMenu(screen as Object, cfg as Object, sel as Object, row as Integer, sky
     screen.Clear(&h101420FF)
     if sky <> invalid then screen.DrawScaledObject(0, 0, W / sky.GetWidth(), H / sky.GetHeight(), sky)
     screen.DrawRect(0, 0, W, H, &h0B0F2370)
-    screen.DrawRect(60, 120, 640, 470, &h0B0F23C8)
+    screen.DrawRect(60, 120, 720, 470, &h0B0F23C8)
     MenuText(screen, "KART", 90, 140, &hFFD23FFF, fontXL)
     rows = [["TRACK", TrackTitle(cfg.tracks[sel.track])], ["RACER", RacerTitle(cfg.roster[sel.racer])]]
     for i = 0 to 1
@@ -56,16 +56,16 @@ sub DrawMenu(screen as Object, cfg as Object, sel as Object, row as Integer, sky
         col = &hFFFFFFFF
         if i = row then
             col = &hFFD23FFF
-            screen.DrawRect(80, y - 10, 600, 100, &hFFFFFF18)
+            screen.DrawRect(80, y - 10, 680, 100, &hFFFFFF18)
         end if
         MenuText(screen, rows[i][0], 100, y, &hB4B9C6FF, fontS)
         MenuText(screen, "<  " + rows[i][1] + "  >", 100, y + 32, col, fontL)
     end for
     MenuText(screen, "UP/DOWN choose   LEFT/RIGHT change   OK race   BACK exit", 90, 540, &hB4B9C6FF, fontS)
     if pic <> invalid then
-        sc = 380.0 / pic.GetWidth()
+        sc = 360.0 / pic.GetWidth()
         if pic.GetHeight() * sc > 420 then sc = 420.0 / pic.GetHeight()
-        screen.DrawScaledObject(760 + (420 - pic.GetWidth() * sc) / 2, 160 + (420 - pic.GetHeight() * sc) / 2, sc, sc, pic)
+        screen.DrawScaledObject(820 + (400 - pic.GetWidth() * sc) / 2, 160 + (420 - pic.GetHeight() * sc) / 2, sc, sc, pic)
     end if
 end sub
 
