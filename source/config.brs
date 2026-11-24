@@ -18,12 +18,12 @@ function GameConfig() as Object
         }
 
         speed: {
-            max: 34             ' cruising top speed (units/s); karts auto-accelerate to it
-            accel: 14           ' units/s^2 toward top speed
+            max: 26             ' cruising top speed (units/s); karts auto-accelerate to it
+            accel: 10           ' units/s^2 toward top speed
             decel: 30           ' units/s^2 when above the current top speed (after a boost ends)
             start: 0            ' speed at the start line
-            boostMax: 52        ' top speed while boosting
-            boostAccel: 90
+            boostMax: 40        ' top speed while boosting
+            boostAccel: 70
             boostTime: 1.6      ' seconds a boost lasts
             bumpFactor: 0.45    ' speed multiplier when you hit traffic
             kartBumpFactor: 0.85 ' speed multiplier for the kart behind when two karts touch
@@ -132,8 +132,12 @@ function GameConfig() as Object
             player: &hE0322EFF
         }
 
-        kartStyle: "classic"     ' one of KartStyles(): classic f1 monster bubble hover frog robot buggy muscle soapbox
-        themeName: "meadow"      ' one of ThemeNames() in themes.brs: the road, sky and scenery look
+        themeName: "jungle"      ' the track: a world or road theme from Themes() in themes.brs
+        ' Racers: art is racer_<name>_<c|l|r>.png. racers[0] is you, the rest are the bots.
+        roster: ["hatchling", "triceracart", "toaster", "gearsnail", "hermit", "jelly"]
+        racers: ["hatchling", "triceracart", "toaster", "hermit"]
+        ' Tracks offered on the title screen, in order: the three worlds, then the classic road themes.
+        tracks: ["jungle", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
         fog: { start: 25, end: 150, max: 0.8 }   ' road colors blend toward the sky color with distance
 
         bestKey: "best_lap_ms"   ' registry key for the best lap

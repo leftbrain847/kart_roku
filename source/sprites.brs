@@ -1,9 +1,6 @@
 ' Sprites are drawn once at startup from rectangles into bitmaps at every scale the game needs
 ' ("pre-scaled"), so a frame only copies bitmaps: no scaling and no per-pixel work while racing.
 
-function KartStyles() as Object
-    return ["classic", "f1", "monster", "bubble", "hover", "frog", "robot", "buggy", "muscle", "soapbox"]
-end function
 
 ' Copy `src` into a new bitmap of w x h. Alpha blending is off on the target so the art's transparency is copied.
 function ScaledCopy(src as Object, w as Integer, h as Integer) as Object
@@ -57,19 +54,33 @@ function BuildSprites(cfg as Object) as Object
     for each name in ["car", "block", "shell", "banana", "boost"]
         list[name] = { path: dir + name + ".png", w: widths[name] }
     end for
-    for each name in Themes()[cfg.themeName].scenery
+    th = Themes()[cfg.themeName]
+    props = []
+    props.Append(th.scenery)
+    if th.DoesExist("median") then props.Push(th.median)
+    if th.DoesExist("hang") then props.Push(th.hang)
+    if th.DoesExist("landmarks") then
+        for each lm in th.landmarks
+            props.Push(lm.k)
+        end for
+    end if
+    for each name in props
         list[name] = { path: dir + name + ".png", w: widths[name] }
     end for
+    out.angled = true
     for i = 0 to cfg.bots.count
-        list["kart" + i.ToStr()] = { path: dir + "kart_" + cfg.kartStyle + "_" + i.ToStr() + ".png", w: widths.kart }
+        for each a in ["c", "l", "r"]
+            list["kart" + i.ToStr() + a] = { path: dir + "racer_" + cfg.racers[i] + "_" + a + ".png", w: widths.racer }
+        end for
     end for
     for each name in list
         sp = LoadSprite(cfg, list[name].path, list[name].w, out)
         if sp <> invalid then
             out.byName[name] = sp.levels
-            if name = "kart0" then
+            if Left(name, 5) = "kart0" then
                 ppu = cfg.camera.k / cfg.camera.playerDepth
-                out.player = ScaledCopy(sp.src, Int(widths.kart * ppu + 0.5), Int(widths.kart * sp.aspect * ppu + 0.5))
+                kw = widths.racer
+                out["player" + Mid(name, 6)] = ScaledCopy(sp.src, Int(kw * ppu + 0.5), Int(kw * sp.aspect * ppu + 0.5))
             else if name = "shell" or name = "banana" or name = "boost" then
                 out.hudItems[name] = ScaledCopy(sp.src, Int(90 / sp.aspect), 90)
                 if out.hudItems[name].w > 100 then out.hudItems[name] = ScaledCopy(sp.src, 100, Int(100 * sp.aspect))

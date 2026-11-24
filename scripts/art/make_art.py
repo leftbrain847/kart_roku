@@ -549,7 +549,7 @@ def main():
     want = lambda kind, name: not only or f"{kind}:{name}" in only or f"{kind}:*" in only
     out.mkdir(parents=True, exist_ok=True)
     for style in KART_STYLES:
-        if want("kart", style):
+        if only and want("kart", style):   # flat 2D karts are retired; render them only when asked
             for i, b in enumerate(BODIES):
                 kart(style, b).save(out / f"kart_{style}_{i}.png", optimize=True)
     for n in ITEMS:

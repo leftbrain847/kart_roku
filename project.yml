@@ -1,8 +1,8 @@
 # Read nightly by leftbrain847/index. /new-project fills this in; edit any time.
 theme: games          # one of the index's config.themes
 tags: []              # from the index's config.tags; new tags lowercase_with_underscores
-what: "Kart for Roku: a fake-3D five-lane racer with route forks, items and lap times, sideloaded as a native BrightScript app"
-next: "Play it on the TV (3840R), record the demo video, and tune speeds/fork layout from what feels right"
+what: "Kart for Roku: a 3D-looking kart racer with hills, split tracks, a tube and corkscrew, 3 worlds and 6 original racers, sideloaded as a native BrightScript app"
+next: "Test v1.2 on the TV (frame rate with *), pick the final name, then tune speed and bots per world"
 active: true          # true pulls this repo's tasks into J's queue
 public: true          # informational; each sprint day's snapshot decides publishing
 settings_done: false  # J sets the repo settings listed in CLAUDE.md, then this flips to true

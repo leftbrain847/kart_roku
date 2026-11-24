@@ -13,6 +13,7 @@ sub Main()
     TestBots(t)
     TestLapsRaceAndBest(t)
     TestPauseAndKeys(t)
+    TestWorlds(t)
     print "RESULT pass=" + t.pass.ToStr() + " fail=" + t.fail.ToStr()
 end sub
 
@@ -317,7 +318,7 @@ sub TestLapsRaceAndBest(t as Object)
     cfg.items.firstRow = 100
     cfg.race.laps = 2
     s = NewGame(cfg, 4)
-    ev = Sim(s, 25)
+    ev = Sim(s, 30)
     Check(t, s.lap = 2 and s.lastLap > 0 and Approx(s.best, s.lastLap), "lap completes and sets best")
     s.cfg.speed.max = 15            ' a slower second lap
     first = s.best
@@ -356,10 +357,47 @@ sub TestPauseAndKeys(t as Object)
     Check(t, HandleKey(s, k.back) = "exit", "Back exits from the pause menu")
     s.menuIndex = 0
     HandleKey(s, k.up)
-    Check(t, s.menuIndex = 3, "menu wraps from RESUME up to EXIT")
+    Check(t, s.menuIndex = 4, "menu wraps from RESUME up to EXIT")
     s2 = NewGame(SoloCfg(), 1)
     s2.paused = true
-    s2.menuIndex = 3
+    s2.menuIndex = 4
     Check(t, HandleKey(s2, k.ok) = "exit", "EXIT in the menu exits")
+    s2.menuIndex = 3
+    Check(t, HandleKey(s2, k.ok) = "menu", "TRACKS goes back to the title screen")
+    HandleKey(s2, k.info)
+    Check(t, s2.showFps, "the * button shows the FPS counter")
     Check(t, HandleKey(s2, k.left + 100) = "", "key releases are ignored")
+end sub
+
+sub TestWorlds(t as Object)
+    for each w in ["jungle", "skytrack", "pebble"]
+        cfg = GameConfig()
+        SetupRace(cfg, w, "jelly")
+        Check(t, ValidateConfig(cfg).Count() = 0, w + " course is valid")
+        PrepareCourse(cfg)
+        Check(t, Abs(ElevAt(cfg, 0) - ElevAt(cfg, cfg.track.length - 0.01)) < 0.05, w + " lap ends at the height it starts")
+        Check(t, cfg.racers.Count() = cfg.bots.count + 1 and cfg.racers[0] = "jelly", w + ": you drive your pick")
+        dup = false
+        for i = 1 to cfg.racers.Count() - 1
+            if cfg.racers[i] = "jelly" then dup = true
+        end for
+        Check(t, not dup, w + ": no bot copies your racer")
+    end for
+    cfg = GameConfig()
+    SetupRace(cfg, "jungle", "hatchling")
+    PrepareCourse(cfg)
+    Check(t, ElevAt(cfg, 350) > ElevAt(cfg, 150) + 5, "jungle climbs a hill")
+    Check(t, ElevAt(cfg, 500) < ElevAt(cfg, 350) - 8, "then dives")
+    Check(t, cfg.forks[0].names[0] = "FERN PATH", "world names its splits")
+    c2 = GameConfig()
+    SetupRace(c2, "skytrack", "toaster")
+    PrepareCourse(c2)
+    Check(t, TubeAt(c2, 400) and not TubeAt(c2, 250), "sky track has a tube")
+    Check(t, Abs(RollAt(c2, 590) - 180) < 5, "corkscrew is upside down halfway")
+    Check(t, RollAt(c2, 400) = 0, "no roll outside the corkscrew")
+    c3 = GameConfig()
+    Check(t, c3.tracks.Count() >= 13 and c3.roster.Count() = 6, "title screen offers 13 tracks and 6 racers")
+    Check(t, TrackTitle("pebble") = "PEBBLE COVE" and RacerTitle("jelly") = "JELLY JET", "track and racer names")
+    c3.course.sections[0].rise = 3
+    Check(t, ValidateConfig(c3).Count() = 1, "unbalanced hills are reported")
 end sub

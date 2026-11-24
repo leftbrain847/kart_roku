@@ -3,7 +3,7 @@
 
 ' Remote key codes from roUniversalControlEvent (presses; releases are code + 100).
 function Keys() as Object
-    return { back: 0, up: 2, down: 3, left: 4, right: 5, ok: 6, play: 13 }
+    return { back: 0, up: 2, down: 3, left: 4, right: 5, ok: 6, info: 10, play: 13 }
 end function
 
 function ItemKinds() as Object
@@ -19,6 +19,8 @@ function NewGame(cfg as Object, seed as Integer) as Object
         trafficOn: cfg.traffic.enabled
         paused: false
         menuIndex: 0
+        showFps: false
+        fps: 0
     }
     if s.seed <= 0 then s.seed = 1
     ResetRace(s)
@@ -136,7 +138,7 @@ end function
 function PauseMenu(s as Object) as Object
     t = "TRAFFIC: OFF"
     if s.trafficOn then t = "TRAFFIC: ON"
-    return ["RESUME", t, "RESTART", "EXIT"]
+    return ["RESUME", t, "RESTART", "TRACKS", "EXIT"]
 end function
 
 sub Say(s as Object, text as String)
@@ -149,17 +151,23 @@ function HandleKey(s as Object, code as Integer) as String
     k = Keys()
     if code >= 100 then return ""        ' ignore releases
     if code = k.back then return "exit"
+    if code = k.info then
+        s.showFps = not s.showFps
+        return ""
+    end if
     if s.finished then
-        if code = k.ok or code = k.play then ResetRace(s)
+        if code = k.ok then ResetRace(s)
+        if code = k.play then return "menu"
         return ""
     end if
     if s.paused
         if code = k.play then
             s.paused = false
         else if code = k.up then
-            s.menuIndex = (s.menuIndex + 3) mod 4
+            n = PauseMenu(s).Count()
+            s.menuIndex = (s.menuIndex + n - 1) mod n
         else if code = k.down then
-            s.menuIndex = (s.menuIndex + 1) mod 4
+            s.menuIndex = (s.menuIndex + 1) mod PauseMenu(s).Count()
         else if code = k.ok then
             return MenuSelect(s)
         end if
@@ -194,6 +202,8 @@ function MenuSelect(s as Object) as String
     else if i = 2 then
         ResetRace(s)
     else if i = 3 then
+        return "menu"
+    else if i = 4 then
         return "exit"
     end if
     return ""

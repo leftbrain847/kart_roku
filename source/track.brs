@@ -94,12 +94,23 @@ function RoadPieces(cfg as Object, sm as Float) as Object
     return pieces
 end function
 
-' Builds cfg.course.table: the curve at every whole unit of the lap, eased in and out of each section.
+' Builds the course tables, one entry per whole unit of the lap: curve (eased in and out of each section),
+' elevation (eased up or down by each section's `rise`), roll in degrees (a section's `roll` sweeps 0 -> roll)
+' and whether that unit is inside a tube.
 sub PrepareCourse(cfg as Object)
     if cfg.course.DoesExist("table") then return
     curveTab = []
+    elevTab = []
+    rollTab = []
+    tubeTab = []
     ease = cfg.course.easeLen
+    elev = 0.0
     for each sec in cfg.course.sections
+        rise = 0
+        if sec.DoesExist("rise") then rise = sec.rise
+        roll = 0
+        if sec.DoesExist("roll") then roll = sec.roll
+        tube = sec.DoesExist("tube") and sec.tube
         for u = 0 to sec.len - 1
             f = 1.0
             if ease > 0 then
@@ -108,17 +119,46 @@ sub PrepareCourse(cfg as Object)
                 if f > 1 then f = 1
             end if
             curveTab.Push(sec.curve * f)
+            t = u / sec.len
+            elevTab.Push(elev + rise * (1 - Cos(3.14159265 * t)) / 2)
+            rollTab.Push(roll * (1 - Cos(3.14159265 * t)) / 2)
+            tubeTab.Push(tube)
         end for
+        elev = elev + rise
     end for
     while curveTab.Count() < cfg.track.length
         curveTab.Push(0)
+        elevTab.Push(elev)
+        rollTab.Push(0)
+        tubeTab.Push(false)
     end while
     cfg.course.table = curveTab
+    cfg.course.elev = elevTab
+    cfg.course.roll = rollTab
+    cfg.course.tube = tubeTab
 end sub
 
 ' Curve (before curveScale) at track position s.
 function CurveAt(cfg as Object, s as Float) as Float
     return cfg.course.table[Int(TrackPos(cfg, s))]
+end function
+
+' Road height at track position s, interpolated between whole units.
+function ElevAt(cfg as Object, s as Float) as Float
+    sm = TrackPos(cfg, s)
+    i = Int(sm)
+    j = i + 1
+    if j >= cfg.track.length then j = 0
+    f = sm - i
+    return cfg.course.elev[i] * (1 - f) + cfg.course.elev[j] * f
+end function
+
+function RollAt(cfg as Object, s as Float) as Float
+    return cfg.course.roll[Int(TrackPos(cfg, s))]
+end function
+
+function TubeAt(cfg as Object, s as Float) as Boolean
+    return cfg.course.tube[Int(TrackPos(cfg, s))]
 end function
 
 ' Problems with a config, as readable strings. Empty array = valid.
@@ -145,10 +185,13 @@ function ValidateConfig(cfg as Object) as Object
         prevEnd = ForkEnd(f)
     end for
     total = 0
+    rises = 0
     for each sec in cfg.course.sections
         total = total + sec.len
+        if sec.DoesExist("rise") then rises = rises + sec.rise
     end for
     if total <> L then errs.Push("course.sections lengths must add up to track.length")
+    if Abs(rises) > 0.001 then errs.Push("course.sections rises must add up to 0 so the lap ends where it starts")
     if cfg.forkSpeedMode <> "carry" and cfg.forkSpeedMode <> "perRoute" then errs.Push("forkSpeedMode must be carry or perRoute")
     total = 0
     for each k in cfg.items.odds
