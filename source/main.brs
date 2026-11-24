@@ -67,33 +67,33 @@ sub SaveBest(cfg as Object, best as Float)
     sec.Flush()
 end sub
 
-' Scripted race: steer, take a fork, use items, pause, toggle traffic. Every frame is drawn.
+' Scripted race: countdown, steer, items, pause menu, a jump across the first split. Every frame is drawn.
 sub RunAutotest(r as Object, s as Object, shots as Boolean)
     k = Keys()
     script = {}
-    script["10"] = k.left
-    script["14"] = k.left
-    script["120"] = k.up
-    script["200"] = k.ok
-    script["260"] = k.down
-    script["300"] = k.play
-    script["301"] = k.down
-    script["302"] = k.ok
-    script["303"] = k.play
-    script["420"] = k.right
-    script["480"] = k.up
-    script["540"] = k.ok
-    frames = 600
+    script["100"] = k.left
+    script["104"] = k.left
+    script["200"] = k.up
+    script["260"] = k.ok
+    script["300"] = k.down
+    script["330"] = k.play
+    script["331"] = k.down
+    script["332"] = k.ok
+    script["333"] = k.play
+    script["540"] = k.right
+    script["548"] = k.right
+    script["620"] = k.up
+    frames = 700
     timer = CreateObject("roTimespan")
-    routes = ""
+    tracks = ""
     for f = 1 to frames
         key = script[f.ToStr()]
         if key <> invalid then HandleKey(s, key)
         for each e in UpdateGame(s, 1 / 30)
-            if Left(e, 6) = "route:" then routes = routes + Mid(e, 7) + " "
+            if Left(e, 6) = "track:" then tracks = tracks + Mid(e, 7) + " "
         end for
         DrawFrame(r, s)
-        if shots and (f = 90 or f = 240 or f = 301 or f = 470) then
+        if shots and (f = 60 or f = 240 or f = 331 or f = 470 or f = 545 or f = 560 or f = 640) then
             print "SHOT " + f.ToStr() + " " + r.screen.GetPng(0, 0, s.cfg.screen.w, s.cfg.screen.h).ToBase64String()
         end if
         r.screen.SwapBuffers()
@@ -101,6 +101,6 @@ sub RunAutotest(r as Object, s as Object, shots as Boolean)
     ms = timer.TotalMilliseconds()
     traffic = "on"
     if not s.trafficOn then traffic = "off"
-    print "AUTOTEST frames=" + frames.ToStr() + " dist=" + Int(s.player.s).ToStr() + " items=" + s.stats.items.ToStr() + " boosts=" + s.stats.boosts.ToStr() + " routes=" + routes + "traffic=" + traffic + " ms=" + ms.ToStr()
+    print "AUTOTEST frames=" + frames.ToStr() + " dist=" + Int(s.player.s).ToStr() + " items=" + s.stats.items.ToStr() + " jumps=" + s.stats.jumps.ToStr() + " karts=" + s.karts.Count().ToStr() + " botItems=" + s.stats.botItems.ToStr() + " tracks=" + tracks + "traffic=" + traffic + " ms=" + ms.ToStr()
     print "AUTOTEST OK"
 end sub

@@ -1,20 +1,20 @@
 # Kart for Roku
 
-A fake-3D lane racer for Roku TVs, written in BrightScript: five lanes, tap Left/Right to change lane, auto-accelerate, route forks, item blocks (shell, banana, boost), light traffic, lap timer and best lap. First build of the Kart game.
+A fake-3D kart race for Roku TVs, written in BrightScript: 3 laps of a curving course against 3 bot racers. Five lanes, every lane its own track; where the road splits into 2 or 3 tracks, Left/Right jumps the gap. Item blocks (shell, banana, boost), light traffic, race position, lap timer and best lap.
 
 **Download:** [kart_roku.zip](https://github.com/leftbrain847/kart_roku/releases/latest/download/kart_roku.zip) (latest release; sideload it, see below)
 
 ## Controls
 | Remote | Action |
 |---|---|
-| Left / Right | change lane (one tap = one lane) |
+| Left / Right | change lane (one tap = one lane); across a split it's a jump to the other track |
 | Up | throw shell or banana forward |
 | Down | drop it behind |
 | OK | use a boost |
 | Play/Pause | pause menu: resume, traffic on/off, restart, exit |
 | Back | exit |
 
-Your lane when you reach a fork picks the route (e.g. lanes 1–2 left, 3–5 right); you can only steer within that route until the routes rejoin.
+Each lap has three split zones (lanes 1–2 | 3–5, 1 | 2–4 | 5, and 1–3 | 4–5). Bots stay in lanes too, switch to dodge hazards and grab blocks, and throw shells at karts ahead of them. Jumping clears bananas.
 
 ## Run (on a Roku)
 ```
@@ -30,14 +30,14 @@ Run it in the simulator instead: `npx brs-cli -n dist/kart_roku.zip` (add `-k au
 ```
 npm test
 ```
-Runs the brighterscript compiler checks, 50+ game-rule unit tests and a 600-frame scripted race in the `brs-cli` simulator, builds the zip and runs it through the security gate. CI runs the same.
+Runs the brighterscript compiler checks, 75+ game-rule unit tests and a 700-frame scripted race (countdown, items, pause menu, a jump across a split, 3 bots) in the `brs-cli` simulator, builds the zip and runs it through the security gate. CI runs the same.
 
 ## Tune it
-Every tunable is in `GameConfig()` in [`source/config.brs`](source/config.brs): lane count, speeds and boost, track length, fork layout (`forks`), `forkSpeedMode` (`"carry"` default, or `"perRoute"` to use each route's `speedMult`), item block spacing and odds, traffic density and speeds, camera and render band sizes, colors. `ValidateConfig` reports bad layouts at startup.
+Every tunable is in `GameConfig()` in [`source/config.brs`](source/config.brs): lane count and jump feel, laps and countdown, speeds and boost, the course (`course.sections` curves), split zones (`forks`: where, how wide, which lanes, names), `forkSpeedMode` (`"carry"` default, or `"perRoute"` to use each track's `speedMults`), item block spacing and odds, bots (count, skill, how often they think and shoot), traffic density and speeds, camera and render band sizes, colors. `ValidateConfig` reports bad layouts at startup.
 
 ## How it stays fast on a Streaming Stick HD (3840R)
 - `roScreen` + Draw2D, double-buffered at 1280×720; no SceneGraph nodes in the frame loop.
-- The road is ~115 horizontal bands of `DrawRect`; each band's depth and scale is computed once at startup.
+- The road is ~115 horizontal bands of `DrawRect`; each band's depth and scale is computed once at startup, and curves just shift each band sideways.
 - Sprites are drawn from rectangles into bitmaps once at startup, at 30 pre-scaled sizes; a frame only copies bitmaps (`DrawObject`), never scales them, and does no per-pixel work.
 - System fonts only (`roFontRegistry.GetDefaultFont`).
 
@@ -47,8 +47,8 @@ Note: Roku requires SceneGraph for apps published to the Channel Store; `roScree
 ```
 manifest, images/          Roku app metadata and icons
 source/config.brs          all tunables
-source/track.brs           forks, lanes, road geometry (pure)
-source/game.brs            rules: input, speed, items, traffic, laps (pure)
+source/track.brs           course curves, split zones, lanes, road geometry (pure)
+source/game.brs            rules: input, karts and bots, jumps, items, traffic, laps, race (pure)
 source/sprites.brs         pre-scaled sprite bitmaps
 source/render.brs          Draw2D renderer and HUD
 source/main.brs            screen, frame loop, saved best lap

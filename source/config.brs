@@ -5,12 +5,20 @@ function GameConfig() as Object
         screen: { w: 1280, h: 720, horizonY: 250 }
 
         lanes: {
-            count: 5            ' number of lanes
+            count: 5            ' number of lanes; every lane is its own track
             changeTime: 0.14    ' seconds to slide one lane
+            jumpTime: 0.32      ' seconds airborne when you hop the gap between split tracks
+            jumpMinGap: 0.6     ' a lane change across a gap at least this wide is a jump
+            jumpHeight: 0.55    ' hop height (units)
+        }
+
+        race: {
+            laps: 3             ' race length; 0 = endless laps
+            countdown: 3        ' seconds of 3-2-1 before the start
         }
 
         speed: {
-            max: 34             ' cruising top speed (units/s); the kart auto-accelerates to it
+            max: 34             ' cruising top speed (units/s); karts auto-accelerate to it
             accel: 14           ' units/s^2 toward top speed
             decel: 30           ' units/s^2 when above the current top speed (after a boost ends)
             start: 0            ' speed at the start line
@@ -18,8 +26,9 @@ function GameConfig() as Object
             boostAccel: 90
             boostTime: 1.6      ' seconds a boost lasts
             bumpFactor: 0.45    ' speed multiplier when you hit traffic
-            spinFactor: 0.30    ' speed multiplier when you hit a banana
-            spinTime: 0.8       ' seconds of lost steering after a banana
+            kartBumpFactor: 0.85 ' speed multiplier for the kart behind when two karts touch
+            spinFactor: 0.30    ' speed multiplier when a banana or shell gets you
+            spinTime: 0.8       ' seconds of lost steering after a banana or shell
             kmhPerUnit: 4       ' HUD speed readout = speed * this
         }
 
@@ -30,27 +39,32 @@ function GameConfig() as Object
             sceneryEvery: 9     ' a roadside tree every N units, each side
         }
 
-        ' Route forks. At `start` the road splits: lanes [0 .. split-1] take routes[0], the rest take routes[1].
-        ' Your lane when you reach `start` picks the route and you stay on it until the routes rejoin at
-        ' start + openLen + length + closeLen. `gap` is the grass median at full width (units).
+        ' The course: sections in order, lengths adding up to track.length. curve > 0 bends right, < 0 left.
+        course: {
+            sections: [
+                { len: 150, curve: 0 }, { len: 200, curve: 0.8 }, { len: 70, curve: 0 }
+                { len: 460, curve: -0.4 }, { len: 120, curve: 1.0 }, { len: 160, curve: -0.6 }
+                { len: 440, curve: 0.5 }, { len: 100, curve: -0.9 }, { len: 100, curve: 0 }
+            ]
+            curveScale: 0.0022  ' how sharply a curve of 1.0 bends on screen
+            easeLen: 30         ' units to ease into and out of each curve
+            parallax: 0.004     ' how far the hills slide per unit of curve driven
+        }
+
+        ' Split zones. At `start` gaps open between lane groups: `splits` lists the first lane of each new group
+        ' (lanes are 0-based: [2] = lanes 1-2 | 3-5 on screen). Every lane is a track; Left/Right always moves one
+        ' lane, and moving across an open gap is a jump. The tracks rejoin at start + openLen + length + closeLen.
+        ' `names` and `speedMults` have one entry per track group.
         forks: [
-            {
-                start: 420, openLen: 70, length: 320, closeLen: 70, gap: 3.2, split: 2
-                routes: [
-                    { name: "CANYON", speedMult: 1.10 }
-                    { name: "COAST", speedMult: 0.96 }
-                ]
-            }
-            {
-                start: 1160, openLen: 70, length: 300, closeLen: 70, gap: 3.6, split: 3
-                routes: [
-                    { name: "FOREST", speedMult: 0.95 }
-                    { name: "RIDGE", speedMult: 1.08 }
-                ]
-            }
+            { start: 420, openLen: 70, length: 320, closeLen: 70, gap: 3.2, splits: [2]
+              names: ["CANYON", "COAST"], speedMults: [1.10, 0.96] }
+            { start: 920, openLen: 50, length: 120, closeLen: 50, gap: 2.4, splits: [1, 4]
+              names: ["GORGE", "HIGHWAY", "CLIFF"], speedMults: [1.12, 1.0, 1.12] }
+            { start: 1160, openLen: 70, length: 300, closeLen: 70, gap: 3.6, splits: [3]
+              names: ["FOREST", "RIDGE"], speedMults: [0.95, 1.08] }
         ]
-        ' "carry": speed carries through forks unchanged (default).
-        ' "perRoute": top speed on a route is speed.max * that route's speedMult.
+        ' "carry": speed carries through splits unchanged (default).
+        ' "perRoute": top speed on a track group is speed.max * that group's speedMult.
         forkSpeedMode: "carry"
 
         items: {
@@ -65,6 +79,21 @@ function GameConfig() as Object
             hazardLife: 25      ' seconds a banana stays on the road
             hitLen: 1.6         ' collision length along the track
             hitWidth: 0.6       ' collision width across lanes
+        }
+
+        bots: {
+            count: 3            ' computer racers
+            names: ["ROCKO", "PIP", "VEX"]
+            bodies: [&h2FB14AFF, &h8E44D9FF, &hFF8C1AFF]   ' kart colors, one per bot
+            skillMin: 0.93      ' bot top speed as a fraction of speed.max
+            skillMax: 1.02
+            thinkMin: 0.6       ' seconds between lane decisions
+            thinkMax: 2.2
+            lookAhead: 20       ' how far ahead bots look for hazards
+            shootRange: 45      ' bots throw a shell at a kart this close ahead in their lane
+            useMin: 0.8         ' seconds a bot holds an item before using it
+            useMax: 3.5
+            gridGap: 5          ' bots start this far apart ahead of you (you start at the back)
         }
 
         traffic: {
@@ -99,6 +128,7 @@ function GameConfig() as Object
             road: &h5A5E66FF, roadAlt: &h53575FFF
             rumbleA: &hE8E8E8FF, rumbleB: &hD43A2FFF, lane: &hF2F2F2FF
             hud: &hFFFFFFFF, hudShadow: &h000000C0, hudAccent: &hFFD23FFF, panel: &h0B0F23C8
+            player: &hE0322EFF
         }
 
         bestKey: "best_lap_ms"   ' registry key for the best lap
