@@ -122,6 +122,7 @@ function GameConfig() as Object
             playerDepth: 3.0    ' kart's distance in front of the camera
             nearDepth: 1.96     ' depth of the bottom screen row
             followRate: 9       ' how fast the camera slides to the kart's x
+            airFollow: 0.75     ' share of your kart's height in the air the camera rises with
         }
 
         render: {

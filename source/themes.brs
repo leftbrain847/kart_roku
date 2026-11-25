@@ -9,7 +9,7 @@ function Themes() as Object
         city: { ground: [&h1B1E2E, &h222638], road: [&h2E3140, &h292C3A], rumble: [&hFFD66B, &h3A3F5C], lane: &hFFE9A8
                 laneStyle: "dash", fog: &h3A2A5A, scenery: ["lamp", "building"], gap: 1.4, tunnel: "steel" }
         snow: { ground: [&hE8EFF7, &hF6F9FC], road: [&h6F7D8C, &h687584], rumble: [&hFFFFFF, &h2F6FD4], lane: &hFFFFFF
-                laneStyle: "dash", fog: &hE8F1FA, scenery: ["pine"], gap: 1.2, tunnel: "snow" }
+                laneStyle: "dash", fog: &hE8F1FA, scenery: ["pine"], gap: 1.2, tunnel: "snow", chasm: [&h8FB2D8, &hA4C2E2] }
         beach: { ground: [&hE9D29C, &hF1DCAA], road: [&h626A74, &h5C646E], rumble: [&hFFFFFF, &h2FA4D8], lane: &hFFFFFF
                  laneStyle: "dash", fog: &hBFEBFF, scenery: ["palm"], gap: 1.3, rightGround: [&h1F86C4, &h2A93D0] }
         synth: { ground: [&h1A0B33, &h2A0F4A], road: [&h120A24, &h160C2C], rumble: [&hFF3EC8, &h3EE8FF], lane: &hFF6FD8
@@ -26,7 +26,7 @@ function Themes() as Object
         jungle: { ground: [&h2E6B34, &h37793C], road: [&h96603E, &h8C5A3A], rumble: [&hD9C9A0, &h6B4A2A], lane: &hE8D8B0
                   laneStyle: "none", fog: &hCFE2B8, scenery: ["fern", "palm", "fern"], gap: 1.1, roadTex: "road_jungle.jpg"
                   median: "brachio", landmarks: [{ at: 260, x: -9, k: "brachio" }, { at: 1150, x: 10, k: "brachio" }]
-                  racers: ["hatchling", "triceracart", "gearsnail", "hermit"]
+                  racers: ["hatchling", "triceracart", "gearsnail", "hermit"], chasm: [&h2E86A0, &h3A97B0]
                   forkNames: [["FERN PATH", "DINO RUN"], ["LEFT VINE", "MUD FLATS", "RIGHT VINE"], ["TAR PITS", "BONEYARD"]] }
         skytrack: { ground: [&h000000, &h000000], road: [&h70768A, &h6A7084], rumble: [&hFFC21A, &h1A1A1A], lane: &hFFC21A
                     laneStyle: "dash", fog: &hFFAA88, scenery: ["beacon"], gap: 0.4, roadTex: "road_skytrack.jpg", void: true
@@ -36,13 +36,13 @@ function Themes() as Object
                      laneStyle: "none", fog: &hE8D8FF, scenery: ["swirltree", "swirltree", "teacup"], gap: 1.5
                      roadTex: "road_whirligig.jpg", median: "swirltree", tunnel: "candy"
                      landmarks: [{ at: 700, x: -7, k: "teacup" }, { at: 1050, x: 8, k: "teacup" }]
-                     racers: ["teapot", "duckboat", "jelly", "gearsnail"]
+                     racers: ["teapot", "duckboat", "jelly", "gearsnail"], chasm: [&hB898E8, &hA886DC]
                      forkNames: [["UPSIDE", "DOWNSIDE"], ["FIDDLE", "FADDLE", "FOO"], ["HITHER", "THITHER"]] }
         pebble: { ground: [&hE4D3A8, &hEBDBB2], road: [&hBCB09A, &hB4A892], rumble: [&hFFFFFF, &h2A8FD0], lane: &hFFFFFF
                   laneStyle: "none", fog: &hE6F4FA, scenery: ["umbrella", "palm"], gap: 1.4, roadTex: "road_pebble.jpg"
                   rightGround: [&h1F86C4, &h2A93D0], median: "palm"
                   landmarks: [{ at: 420, x: 9, k: "lighthouse" }, { at: 1330, x: 0, k: "rockarch" }]
-                  racers: ["hermit", "jelly", "hatchling", "toaster"]
+                  racers: ["hermit", "jelly", "hatchling", "toaster"], chasm: [&h1F7CB8, &h2A8CC8]
                   forkNames: [["TIDE POOLS", "BOARDWALK"], ["DUNES", "PROMENADE", "SHALLOWS"], ["COVE", "CLIFFTOP"]] }
     }
 end function
@@ -78,7 +78,7 @@ function WorldCourse(name as String) as Dynamic
     if name = "jungle" then
         return { sections: [
             { len: 150, curve: 0 }, { len: 200, curve: 0.6, rise: 6 }, { len: 150, curve: -0.9, rise: -9 }
-            { len: 60, curve: 0, rise: 3 }, { len: 40, curve: 0, jump: true }, { len: 120, curve: 0 }
+            { len: 60, curve: 0, rise: 3 }, { len: 30, curve: 0, jump: true }, { len: 130, curve: 0 }
             { len: 160, curve: -0.4 }, { len: 200, curve: -0.4, tunnel: "rock" }, { len: 200, curve: 0.9, rise: -5, bank: 14 }
             { len: 220, curve: 0.3, rise: 5 }, { len: 100, curve: -0.5 }, { len: 150, curve: 0, roll: 360 }
             { len: 50, curve: 0 }
@@ -87,7 +87,7 @@ function WorldCourse(name as String) as Dynamic
         return { sections: [
             { len: 150, curve: 0 }, { len: 150, curve: 0.5, rise: 4 }, { len: 200, curve: 0, tube: true }
             { len: 180, curve: 0, roll: 360 }, { len: 150, curve: -0.7, rise: -4, bank: -16 }, { len: 100, curve: 0.6, rise: 6 }
-            { len: 50, curve: 0, jump: true }, { len: 50, curve: 0.6 }, { len: 250, curve: -0.3, rise: -6 }, { len: 200, curve: 0, tube: true }, { len: 30, curve: 0 }
+            { len: 32, curve: 0, jump: true }, { len: 68, curve: 0.6 }, { len: 250, curve: -0.3, rise: -6 }, { len: 200, curve: 0, tube: true }, { len: 30, curve: 0 }
             { len: 170, curve: 0, loop: true }, { len: 120, curve: 0.4 }
         ], forks: [
             { start: 760, openLen: 60, length: 300, closeLen: 60, gap: 4.0, splits: [2]
@@ -97,8 +97,8 @@ function WorldCourse(name as String) as Dynamic
         ' Everything at once: a climb into a candy mountain, a banked dive, a jump, splits, a barrel roll, a loop.
         return { sections: [
             { len: 80, curve: 0 }, { len: 120, curve: 0.5, rise: 6 }, { len: 180, curve: -0.4, tunnel: "candy" }
-            { len: 40, curve: 0 }, { len: 140, curve: 0.6, rise: -10, bank: 14 }, { len: 40, curve: 0, jump: true }
-            { len: 280, curve: -0.7, rise: 4 }, { len: 40, curve: 0 }, { len: 220, curve: 0.5, rise: 3 }
+            { len: 40, curve: 0 }, { len: 140, curve: 0.6, rise: -10, bank: 14 }, { len: 30, curve: 0, jump: true }
+            { len: 290, curve: -0.7, rise: 4 }, { len: 40, curve: 0 }, { len: 220, curve: 0.5, rise: 3 }
             { len: 20, curve: 0 }, { len: 240, curve: -0.6, rise: -3, bank: -16 }, { len: 50, curve: 0.3 }
             { len: 150, curve: 0, roll: -360 }, { len: 160, curve: 0, loop: true }, { len: 40, curve: 0 }
         ] }
@@ -106,8 +106,8 @@ function WorldCourse(name as String) as Dynamic
         return { sections: [
             { len: 150, curve: 0 }, { len: 250, curve: 0.5, rise: 5 }, { len: 150, curve: -0.6, rise: -5 }
             { len: 100, curve: 0.3 }, { len: 180, curve: 0.3, tunnel: "rock" }, { len: 20, curve: 0 }
-            { len: 250, curve: -0.8, rise: 4, bank: -14 }, { len: 140, curve: 0.4, rise: -4 }, { len: 40, curve: 0, jump: true }
-            { len: 20, curve: 0 }, { len: 300, curve: -0.2 }, { len: 160, curve: 0, loop: true }, { len: 40, curve: 0 }
+            { len: 250, curve: -0.8, rise: 4, bank: -14 }, { len: 140, curve: 0.4, rise: -4 }, { len: 30, curve: 0, jump: true }
+            { len: 30, curve: 0 }, { len: 300, curve: -0.2 }, { len: 160, curve: 0, loop: true }, { len: 40, curve: 0 }
         ] }
     end if
     ' Classic road themes take one of two layouts, mirrored on every other theme.
@@ -128,7 +128,7 @@ function WorldCourse(name as String) as Dynamic
             { len: 120, curve: 0 }, { len: 130, curve: 0.5 * m, rise: 5 }, { len: 150, curve: 0, loop: true }
             { len: 20, curve: 0 }, { len: 280, curve: -0.6 * m, rise: -8 }, { len: 60, curve: 0.4 * m, rise: 6 }
             { len: 120, curve: 0.4 * m, tunnel: tun }, { len: 20, curve: 0 }
-            { len: 100, curve: -0.3 * m, rise: -3 }, { len: 50, curve: 0, jump: true }, { len: 110, curve: -0.3 * m }
+            { len: 100, curve: -0.3 * m, rise: -3 }, { len: 32, curve: 0, jump: true }, { len: 128, curve: -0.3 * m }
             { len: 240, curve: 0.7 * m, bank: 14 * m }
             { len: 200, curve: -0.5 * m }, { len: 150, curve: 0, roll: 360 * m }, { len: 50, curve: 0 }
         ] }
@@ -138,7 +138,7 @@ function WorldCourse(name as String) as Dynamic
         { len: 100, curve: 0 }, { len: 200, curve: 0.4 * m, rise: 7 }, { len: 120, curve: 0, rise: -7 }
         { len: 140, curve: -0.5 * m, rise: 4, bank: -12 * m }, { len: 200, curve: -0.5 * m, tunnel: tun }
         { len: 120, curve: -0.5 * m, bank: -12 * m }, { len: 40, curve: 0 }, { len: 240, curve: 0.8 * m, rise: -6 }
-        { len: 140, curve: -0.4 * m, rise: 2 }, { len: 40, curve: 0, jump: true }, { len: 260, curve: -0.4 * m }
+        { len: 140, curve: -0.4 * m, rise: 2 }, { len: 30, curve: 0, jump: true }, { len: 270, curve: -0.4 * m }
         { len: 150, curve: 0, loop: true }, { len: 50, curve: 0 }
     ] }
 end function

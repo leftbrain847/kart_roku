@@ -501,7 +501,7 @@ sub TestTunnelsAndJumps(t as Object)
     PrepareCourse(cfg)
     Check(t, TubeStyle(cfg, 300) = "candy" and cfg.course.tunnels[0].at = 200, "candy mountain tunnel at 200")
     j = cfg.course.jumps[0]
-    Check(t, j.at = 560 and GapAt(cfg, 570) and not GapAt(cfg, 555), "jump gap at 560")
+    Check(t, j.at = 560 and GapAt(cfg, 570) and not GapAt(cfg, 555) and not GapAt(cfg, 591), "jump gap at 560")
     s = NewGame(cfg, 5)
     s.countdown = 0
     p = s.player

@@ -57,7 +57,9 @@ function NewRenderer(cfg as Object, screen as Object) as Object
             if st <> "steel" then fogc = &h000000
             b.tube[st] = { wall: [MixColor(c.wall[0], fogc, ft), MixColor(c.wall[1], fogc, ft)], ceil: [MixColor(c.ceil[0], fogc, ft), MixColor(c.ceil[1], fogc, ft)], light: (c.light << 8) or 255 }
         end for
-        b.chasm = MixColor(&h140E0A, theme.fog, t * 0.6)
+        ch = [&h3A2E28, &h2E241F]
+        if theme.DoesExist("chasm") then ch = theme.chasm
+        b.chasm = [MixColor(ch[0], theme.fog, t * 0.7), MixColor(ch[1], theme.fog, t * 0.7)]
     end for
     art = "pkg:/images/sprites/"
     r = {
@@ -150,7 +152,7 @@ sub ProjectRoad(r as Object, s as Object)
     cfg = s.cfg
     scale = cfg.course.curveScale
     maxD = cfg.track.drawDist
-    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height
+    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height + KartHop(cfg, s.player) * cfg.camera.airFollow
     hy = cfg.screen.horizonY
     x = 0.0
     slope = 0.0
@@ -192,7 +194,7 @@ sub DrawRoad(r as Object, s as Object, scr as Object, cx as Float)
             stripe = Int(z / stripeLen) and 1
             if GapAt(cfg, z) then
                 ' The gap of a jump: no road, a dark chasm (or just sky in a void world).
-                if not void then scr.DrawRect(0, y, W, h, b.chasm)
+                if not void then scr.DrawRect(0, y, W, h, b.chasm[stripe])
             else
                 if not void then scr.DrawRect(0, y, W, h, b.ground[stripe])
                 camX = s.camX - r.sx[i]
@@ -245,7 +247,7 @@ sub DrawTubes(r as Object, s as Object, scr as Object, cx as Float)
     if cfg.course.tunnels.Count() = 0 and not r.hasTubes then return
     W = cfg.screen.w
     hy = cfg.screen.horizonY
-    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height
+    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height + KartHop(cfg, s.player) * cfg.camera.airFollow
     tubeH = 3.4
     prevCy = -1
     for i = 0 to r.bands.Count() - 1
@@ -411,9 +413,7 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
     end for
     spr = r.sprites
     for each kt in s.karts
-        hop = 0
-        if kt.jumpT > 0 then hop = Sin(3.14159 * kt.jumpT / cfg.lanes.jumpTime) * cfg.lanes.jumpHeight
-        if kt.airT > 0 then hop = hop + Sin(3.14159 * kt.airT / kt.airDur) * kt.airH
+        hop = KartHop(cfg, kt)
         wob = 0
         if kt.spinT > 0 then wob = Sin(kt.spinT * 40) * 0.12
         ang = ""
@@ -453,6 +453,14 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
         end if
     end for
 end sub
+
+'' How high a kart is off the road: a lane-change hop plus airtime.
+function KartHop(cfg as Object, k as Object) as Float
+    hop = 0
+    if k.jumpT > 0 then hop = Sin(3.14159 * k.jumpT / cfg.lanes.jumpTime) * cfg.lanes.jumpHeight
+    if k.airT > 0 then hop = hop + Sin(3.14159 * k.airT / k.airDur) * k.airH
+    return hop
+end function
 
 ' Which pre-rendered angle to show: leaning into a lane change or a bend.
 function KartAngle(cfg as Object, k as Object) as String
