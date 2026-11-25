@@ -109,7 +109,9 @@ sub PrepareCourse(cfg as Object)
     if cfg.course.DoesExist("table") then return
     curveTab = []
     elevTab = []
+    baseTab = []
     rollTab = []
+    pitchTab = []
     tubeTab = []
     gapTab = []
     loops = []
@@ -118,6 +120,8 @@ sub PrepareCourse(cfg as Object)
     ease = cfg.course.easeLen
     elev = 0.0
     at = 0
+    L = cfg.track.length
+    ripple = cfg.course.ripple
     for each sec in cfg.course.sections
         rise = 0
         if sec.DoesExist("rise") then rise = sec.rise
@@ -135,11 +139,14 @@ sub PrepareCourse(cfg as Object)
         if gap then jumps.Push({ at: at, len: sec.len })
         isLoop = sec.DoesExist("loop") and sec.loop
         hump = 0
+        pitch = 0
         if isLoop then
             hump = sec.len * cfg.course.loopHeight
-            roll = 360
+            pitch = 360
             loops.Push(at)
         end if
+        ' Gentle rises and dips everywhere except where the road must stay true (loops, tubes, jumps).
+        calm = isLoop or tube <> "" or gap
         for u = 0 to sec.len - 1
             f = 1.0
             if ease > 0 then
@@ -150,34 +157,87 @@ sub PrepareCourse(cfg as Object)
             curveTab.Push(sec.curve * f)
             t = u / sec.len
             sw = Sin(3.14159265 * t)
-            elevTab.Push(elev + rise * (1 - Cos(3.14159265 * t)) / 2 + hump * sw * sw)
+            base = elev + rise * (1 - Cos(3.14159265 * t)) / 2 + hump * sw * sw
+            baseTab.Push(base)
+            wob = 0
+            if not calm then
+                g = at + u
+                wob = f * ripple * (Sin(6.2831853 * g * 11 / L) + 0.5 * Sin(6.2831853 * g * 29 / L + 1.3))
+            end if
+            elevTab.Push(base + wob)
             rollTab.Push(roll * (1 - Cos(3.14159265 * t)) / 2 + bank * f)
+            pitchTab.Push(pitch * t)
             tubeTab.Push(tube)
             gapTab.Push(gap)
         end for
         elev = elev + rise
         at = at + sec.len
     end for
-    while curveTab.Count() < cfg.track.length
+    while curveTab.Count() < L
         curveTab.Push(0)
         elevTab.Push(elev)
+        baseTab.Push(elev)
         rollTab.Push(0)
+        pitchTab.Push(0)
         tubeTab.Push("")
         gapTab.Push(false)
     end while
     cfg.course.table = curveTab
     cfg.course.elev = elevTab
+    cfg.course.elevBase = baseTab
     cfg.course.roll = rollTab
+    cfg.course.pitch = pitchTab
     cfg.course.tube = tubeTab
     cfg.course.gap = gapTab
     cfg.course.loops = loops
     cfg.course.tunnels = tunnels
     cfg.course.jumps = jumps
+    PrepareTerrain(cfg)
 end sub
 
-' How sharply the road crests at s (negative = cresting); used for airtime.
+' The land beside the track, one height per unit per side (above the road there): rolling hills, valleys,
+' mountains and small bumps, all repeating exactly once per lap. cfg.terrain sets the sizes.
+sub PrepareTerrain(cfg as Object)
+    tr = cfg.terrain
+    L = cfg.track.length
+    sides = [[], []]
+    for side = 0 to 1
+        ph = side * 2.1
+        for u = 0 to L - 1
+            a = 6.2831853 * u / L
+            ' rolling hills every ~120 and ~50 units, valleys between them
+            h = tr.hills * (0.8 * Sin(15 * a + ph) + 0.5 * Sin(37 * a + 0.7 + ph * 1.3))
+            ' mountains rising every ~300 units
+            m = Sin(6 * a + 1.1 + ph * 1.7)
+            if m > 0 then h = h + tr.mountains * m * m * m
+            ' small bumps and divots
+            h = h + tr.bumps * Sin(140 * a + ph * 3)
+            sides[side].Push(h)
+        end for
+    end for
+    cfg.course.sideL = sides[0]
+    cfg.course.sideR = sides[1]
+end sub
+
+' How high the land beside the track is at s, above the road (side 0 = left, 1 = right).
+function SideAt(cfg as Object, s as Float, side as Integer) as Float
+    i = Int(TrackPos(cfg, s))
+    if side = 0 then return cfg.course.sideL[i]
+    return cfg.course.sideR[i]
+end function
+
+' How sharply the road crests at s (negative = cresting), from the base road without the small ripples;
+' used for airtime.
 function CrestAt(cfg as Object, s as Float) as Float
-    return ElevAt(cfg, s + 2) - 2 * ElevAt(cfg, s) + ElevAt(cfg, s - 2)
+    e = cfg.course.elevBase
+    L = cfg.track.length
+    i = Int(TrackPos(cfg, s))
+    return e[(i + 2) mod L] - 2 * e[i] + e[(i - 2 + L) mod L]
+end function
+
+' Loop progress at s in degrees: 0 -> 360 as you go round a loop, 0 elsewhere.
+function PitchAt(cfg as Object, s as Float) as Float
+    return cfg.course.pitch[Int(TrackPos(cfg, s))]
 end function
 
 ' Curve (before curveScale) at track position s.

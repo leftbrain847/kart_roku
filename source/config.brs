@@ -58,7 +58,8 @@ function GameConfig() as Object
             curveScale: 0.0022  ' how sharply a curve of 1.0 bends on screen
             easeLen: 30         ' units to ease into and out of each curve
             parallax: 0.004     ' how far the hills slide per unit of curve driven
-            loopHeight: 0.18    ' a loop's hump is this fraction of its length
+            loopHeight: 0.04    ' a loop's climb is this fraction of its length (kept low so the road stays in view)
+            ripple: 0.35        ' gentle rises and dips everywhere on the road (units)
         }
 
         ' Split zones. At `start` gaps open between lane groups: `splits` lists the first lane of each new group
@@ -132,6 +133,9 @@ function GameConfig() as Object
             minPpu: 3           ' smallest scale (px per unit)
             maxPpu: 240         ' largest scale
             maxSpritePx: 420    ' a pre-scaled copy never exceeds this many px (texture memory on the stick)
+            ' The canvas rolls and loops are drawn on: square, at least the screen's diagonal (1469 px) so the
+            ' rotated picture always covers the screen; bands rows add up to size - its horizon row.
+            roll: { size: 1472, bands: [[20, 1], [50, 2], [120, 4], [656, 8]] }
         }
 
         colors: {
@@ -150,6 +154,10 @@ function GameConfig() as Object
         ' Tracks offered on the title screen, in order: the three worlds, then the classic road themes.
         tracks: ["whirligig", "jungle", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
         fog: { start: 25, end: 150, max: 0.8 }   ' road colors blend toward the sky color with distance
+
+        ' The land beside the track (units above the road): rolling hills, mountains, small bumps; `slope` is how
+        ' far up the inner slope next to the road rises, `shoulder` how wide it is. Worlds override this.
+        terrain: { hills: 5.5, mountains: 13, bumps: 0.4, slope: 0.35, shoulder: 1.2 }
 
         bestKey: "best_lap_ms"   ' registry key for the best lap
         maxDt: 0.1               ' clamp long frames so the sim never jumps

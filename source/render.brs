@@ -6,62 +6,10 @@
 
 function NewRenderer(cfg as Object, screen as Object) as Object
     PrepareCourse(cfg)
-    cam = cfg.camera
-    hy = cfg.screen.horizonY
-    bands = []
-    y = hy
-    for each b in cfg.render.bands
-        rows = b[0]
-        bh = b[1]
-        last = y + rows
-        while y < last
-            h = bh
-            if y + h > last then h = last - y
-            mid = y + h / 2.0 - hy
-            if mid < 0.5 then mid = 0.5
-            ppu = mid / cam.height          ' px per unit at this row
-            bands.Push({ y: y, h: h, ppu: ppu, d: cam.k / ppu })
-            y = y + h
-        end while
-    end for
-    ' Screen row (from the horizon, flat road) -> sample index, for placing sprites.
-    rowBand = []
-    n = bands.Count()
-    for i = 0 to n - 1
-        for rr = 1 to bands[i].h
-            rowBand.Push(i)
-        end for
-    end for
     reg = CreateObject("roFontRegistry")
     theme = Themes()[cfg.themeName]
-    ' Each sample's colors, blended toward the sky color by distance once here (fog costs nothing per frame).
-    fc = cfg.fog
-    for each b in bands
-        t = (b.d - fc.start) / (fc.end - fc.start)
-        if t < 0 then t = 0
-        if t > 1 then t = 1
-        t = t * fc.max
-        b.ground = [MixColor(theme.ground[0], theme.fog, t), MixColor(theme.ground[1], theme.fog, t)]
-        b.road = [MixColor(theme.road[0], theme.fog, t), MixColor(theme.road[1], theme.fog, t)]
-        b.rumble = [MixColor(theme.rumble[0], theme.fog, t), MixColor(theme.rumble[1], theme.fog, t)]
-        b.lane = MixColor(theme.lane, theme.fog, t)
-        b.fogA = ((theme.fog << 8) or Int(t * 255)) ' fog veil over textured road
-        if theme.DoesExist("rightGround") then b.right = [MixColor(theme.rightGround[0], theme.fog, t), MixColor(theme.rightGround[1], theme.fog, t)]
-        ' Tube and tunnel colors per style; tunnels fade to black inside, not to the sky.
-        b.tube = {}
-        tc = TubeColors(theme)
-        for each st in tc
-            c = tc[st]
-            ft = t * 0.5
-            fogc = theme.fog
-            if st <> "steel" then fogc = &h000000
-            b.tube[st] = { wall: [MixColor(c.wall[0], fogc, ft), MixColor(c.wall[1], fogc, ft)], ceil: [MixColor(c.ceil[0], fogc, ft), MixColor(c.ceil[1], fogc, ft)], light: (c.light << 8) or 255 }
-        end for
-        ch = [&h3A2E28, &h2E241F]
-        if theme.DoesExist("chasm") then ch = theme.chasm
-        b.chasm = [MixColor(ch[0], theme.fog, t * 0.7), MixColor(ch[1], theme.fog, t * 0.7)]
-    end for
     art = "pkg:/images/sprites/"
+    sc = cfg.screen
     r = {
         theme: theme
         sky: CreateObject("roBitmap", art + "sky_" + cfg.themeName + ".jpg")
@@ -69,21 +17,14 @@ function NewRenderer(cfg as Object, screen as Object) as Object
         near: CreateObject("roBitmap", art + "near_" + cfg.themeName + ".png")
         screen: screen
         cfg: cfg
-        bands: bands
-        rowBand: rowBand
-        sx: [], sy: [], clipAt: [], seen: []
         sprites: BuildSprites(cfg)
         fontS: reg.GetDefaultFont(26, false, false)
         fontM: reg.GetDefaultFont(34, true, false)
         fontL: reg.GetDefaultFont(56, true, false)
         fontXL: reg.GetDefaultFont(110, true, false)
     }
-    for i = 0 to n - 1
-        r.sx.Push(0)
-        r.sy.Push(0)
-        r.clipAt.Push(0)
-        r.seen.Push(false)
-    end for
+    r.mainView = BuildView(cfg, theme, sc.w, sc.h, sc.horizonY, cfg.render.bands)
+    UseView(r, r.mainView)
     if theme.DoesExist("void") and theme.void then r.below = CreateObject("roBitmap", art + "below_" + cfg.themeName + ".jpg")
     if theme.DoesExist("roadTex") then
         tex = CreateObject("roBitmap", art + theme.roadTex)
@@ -100,124 +41,358 @@ function NewRenderer(cfg as Object, screen as Object) as Object
     for each st in cfg.course.tube
         if st <> "" then r.hasTubes = true
     end for
-    if cfg.course.DoesExist("roll") then
-        r.frame = CreateObject("roBitmap", { width: cfg.screen.w, height: cfg.screen.h, AlphaEnable: true })
+    rolls = false
+    for each a in cfg.course.roll
+        if Abs(a) > 0.5 then rolls = true
+    end for
+    if cfg.course.loops.Count() > 0 then r.pframe = CreateObject("roBitmap", { width: sc.w, height: sc.h, AlphaEnable: true })
+    if rolls then
+        ' Rolling frames are drawn on a square canvas as wide as the screen's diagonal, so no corner is ever
+        ' empty when it is rotated, with the horizon and centre in the same place relative to its middle.
+        rc = cfg.render.roll
+        D = rc.size
+        rhy = sc.horizonY + (D - sc.h) \ 2
+        r.rollView = BuildView(cfg, theme, D, D, rhy, rc.bands)
+        r.frame = CreateObject("roBitmap", { width: D, height: D, AlphaEnable: true })
     end if
     return r
 end function
 
+' The road samples for one canvas (the screen, or the larger rolling canvas): each band of rows below the
+' horizon, its depth and scale, and its colors blended toward the sky color by distance (fog costs nothing per
+' frame).
+function BuildView(cfg as Object, theme as Object, W as Integer, H as Integer, hy as Integer, spec as Object) as Object
+    cam = cfg.camera
+    bands = []
+    y = hy
+    for each bs in spec
+        rows = bs[0]
+        bh = bs[1]
+        last = y + rows
+        while y < last
+            rowsH = bh
+            if y + rowsH > last then rowsH = last - y
+            mid = y + rowsH / 2.0 - hy
+            if mid < 0.5 then mid = 0.5
+            ppu = mid / cam.height          ' px per unit at this row
+            bands.Push({ y: y, h: rowsH, ppu: ppu, d: cam.k / ppu })
+            y = y + rowsH
+        end while
+    end for
+    rowBand = []
+    for i = 0 to bands.Count() - 1
+        for rr = 1 to bands[i].h
+            rowBand.Push(i)
+        end for
+    end for
+    fc = cfg.fog
+    tc = TubeColors(theme)
+    ch = [&h3A2E28, &h2E241F]
+    if theme.DoesExist("chasm") then ch = theme.chasm
+    rk = [&h7C7268, &h72685E]
+    if theme.DoesExist("rock") then rk = theme.rock
+    for each b in bands
+        t = (b.d - fc.start) / (fc.end - fc.start)
+        if t < 0 then t = 0
+        if t > 1 then t = 1
+        t = t * fc.max
+        b.ground = [MixColor(theme.ground[0], theme.fog, t), MixColor(theme.ground[1], theme.fog, t)]
+        b.road = [MixColor(theme.road[0], theme.fog, t), MixColor(theme.road[1], theme.fog, t)]
+        b.rumble = [MixColor(theme.rumble[0], theme.fog, t), MixColor(theme.rumble[1], theme.fog, t)]
+        b.lane = MixColor(theme.lane, theme.fog, t)
+        b.fogA = ((theme.fog << 8) or Int(t * 255)) ' fog veil over textured road
+        if theme.DoesExist("rightGround") then b.right = [MixColor(theme.rightGround[0], theme.fog, t), MixColor(theme.rightGround[1], theme.fog, t)]
+        ' Tube and tunnel colors per style; tunnels fade to black inside, not to the sky.
+        b.tube = {}
+        for each st in tc
+            c = tc[st]
+            ft = t * 0.5
+            fogc = theme.fog
+            if st <> "steel" then fogc = &h000000
+            b.tube[st] = { wall: [MixColor(c.wall[0], fogc, ft), MixColor(c.wall[1], fogc, ft)], ceil: [MixColor(c.ceil[0], fogc, ft), MixColor(c.ceil[1], fogc, ft)], light: (c.light << 8) or 255 }
+        end for
+        b.chasm = [MixColor(ch[0], theme.fog, t * 0.7), MixColor(ch[1], theme.fog, t * 0.7)]
+        ' land keeps more of its own color in the distance than the road does, so far hills read as hills
+        lt = t * 0.55
+        b.land = [MixColor(theme.ground[0], theme.fog, lt), MixColor(theme.ground[1], theme.fog, lt)]
+        ' height shading so the land's shape reads: valleys in shadow, rises catching the light
+        dk = [MixColor(theme.ground[0], &h000000, 0.4), MixColor(theme.ground[1], &h000000, 0.4)]
+        lg = [MixColor(theme.ground[0], &hFFFFFF, 0.3), MixColor(theme.ground[1], &hFFFFFF, 0.3)]
+        b.landDark = [MixColor((dk[0] >> 8) and &hFFFFFF, theme.fog, lt), MixColor((dk[1] >> 8) and &hFFFFFF, theme.fog, lt)]
+        b.landLight = [MixColor((lg[0] >> 8) and &hFFFFFF, theme.fog, lt), MixColor((lg[1] >> 8) and &hFFFFFF, theme.fog, lt)]
+        b.rock = [MixColor(rk[0], theme.fog, lt), MixColor(rk[1], theme.fog, lt)]
+        b.snow = MixColor(&hF4F7FC, theme.fog, lt)
+    end for
+    ' ty/tc: per strip (0 road, 1-3 left hills/middle/slope, 4-6 right), each sample's top row and clip row
+    v = { W: W, H: H, hy: hy, bands: bands, rowBand: rowBand, sx: [], sy: [], hL: [], hR: [], ty: [], tc: [] }
+    for t = 0 to 6
+        v.ty.Push([])
+        v.tc.Push([])
+    end for
+    for i = 0 to bands.Count() - 1
+        for each key in ["sx", "sy", "hL", "hR"]
+            v[key].Push(0)
+        end for
+        for t = 0 to 6
+            v.ty[t].Push(0)
+            v.tc[t].Push(0)
+        end for
+    end for
+    return v
+end function
+
+' Point the drawing code at a canvas's samples.
+sub UseView(r as Object, v as Object)
+    r.W = v.W
+    r.H = v.H
+    r.hy = v.hy
+    r.bands = v.bands
+    r.rowBand = v.rowBand
+    r.sx = v.sx
+    r.sy = v.sy
+    r.ty = v.ty
+    r.tc = v.tc
+    r.hL = v.hL
+    r.hR = v.hR
+end sub
+
 sub DrawFrame(r as Object, s as Object)
     cfg = s.cfg
-    W = cfg.screen.w
-    H = cfg.screen.h
-    hy = cfg.screen.horizonY
-    cx = W / 2
     roll = 0.0
     if r.frame <> invalid then roll = RollAt(cfg, s.player.s)
+    pitch = 0.0
+    if r.pframe <> invalid then pitch = PitchAt(cfg, s.player.s)
     scr = r.screen
-    rolled = Abs(roll) > 0.5 and Abs(roll - 360) > 0.5
-    if rolled then scr = r.frame
+    rolled = Abs(roll) > 0.5 and Abs(roll - 360) > 0.5 and Abs(roll + 360) > 0.5
+    looping = pitch > 0.5 and pitch < 359.5
+    if rolled then
+        scr = r.frame
+        UseView(r, r.rollView)
+    else
+        UseView(r, r.mainView)
+        if looping then scr = r.pframe
+    end if
+    W = r.W
+    H = r.H
+    hy = r.hy
+    cx = W / 2
+    r.skipPlayer = rolled or looping
 
     ' Sky art, then two parallax ridges that slide with the curves and with sideways moves.
-    scr.DrawObject(0, 0, r.sky)
-    DrawRidge(scr, r.far, s.camX * 6 + s.bgX * 200, hy)
-    DrawRidge(scr, r.near, s.camX * 14 + s.bgX * 450, hy)
-    if r.below <> invalid then
-        scr.DrawObject(0, hy, r.below)
+    if W = r.sky.GetWidth() and hy = r.sky.GetHeight() then
+        scr.DrawObject(0, 0, r.sky)
     else
-        scr.DrawRect(0, hy, W, H - hy, r.bands[0].ground[0])
+        scr.DrawScaledObject(0, 0, W / r.sky.GetWidth(), hy / r.sky.GetHeight(), r.sky)
+    end if
+    DrawRidge(scr, r.far, s.camX * 6 + s.bgX * 200, hy, W)
+    DrawRidge(scr, r.near, s.camX * 14 + s.bgX * 450, hy, W)
+    if r.below <> invalid then
+        if W = r.below.GetWidth() then
+            scr.DrawObject(0, hy, r.below)
+        else
+            scr.DrawScaledObject(0, hy, W / r.below.GetWidth(), (H - hy) / r.below.GetHeight(), r.below)
+        end if
+    else
+        ' underpaint: land-colored rows by distance, so any gap between land strips reads as ground
+        scr.DrawRect(0, hy, W, H - hy, r.bands[0].land[0])
+        for each b in r.bands
+            if b.d <= cfg.track.drawDist then scr.DrawRect(0, b.y, W, b.h, b.land[Int((s.camZ + b.d) / cfg.track.stripeLen) and 1])
+        end for
     end if
 
     ProjectRoad(r, s)
-    if r.below <> invalid then DrawHanging(r, s, scr, cx)
-    DrawRoad(r, s, scr, cx)
-    DrawTubes(r, s, scr, cx)
-    DrawObjects(r, s, scr, cx)
+    DrawWorld(r, s, scr, cx)
 
+    if looping then
+        ' A loop pitches you over forwards: the world scrolls down past you, comes round upside down at the top
+        ' (sky meets sky, ground meets ground), and scrolls back to level. Your kart stays put.
+        sh = cfg.screen.h
+        scroll = Int(pitch / 360 * 2 * sh)
+        r.screen.DrawObject(0, scroll, r.pframe)
+        r.screen.DrawObject(0, scroll - 2 * sh, r.pframe)
+        r.screen.DrawRotatedObject(cfg.screen.w, scroll, 180, r.pframe)
+        DrawPlayerUpright(r, s)
+    end if
     if rolled then
-        ' Corkscrew: rotate the finished frame about the screen centre.
-        r.screen.Clear((r.theme.fog << 8) or 255)
+        ' Rotate the finished canvas about its centre onto the screen's centre, then draw your kart upright
+        ' on top: the world turns around you.
+        sw = cfg.screen.w
+        sh = cfg.screen.h
         a = roll * 3.14159265 / 180
-        ox = -cx * Cos(a) - (-H / 2) * Sin(a)
-        oy = cx * Sin(a) + (-H / 2) * Cos(a)
-        r.screen.DrawRotatedObject(cx + ox, H / 2 + oy, roll, r.frame)
+        half = W / 2
+        ' Where the canvas's top-left corner lands when it turns theta degrees counter-clockwise about its centre.
+        ox = -half * Cos(a) - half * Sin(a)
+        oy = half * Sin(a) - half * Cos(a)
+        r.screen.DrawRotatedObject(sw / 2 + ox, sh / 2 + oy, roll, r.frame)
+        UseView(r, r.mainView)
+        DrawPlayerUpright(r, s)
     end if
     DrawHud(r, s)
     if s.paused then DrawPause(r, s)
     if s.finished then DrawResults(r, s)
 end sub
 
-' Project every road sample: sideways bend from the curves, height from the hills.
+' Project every road sample: sideways bend from the curves, height from the hills, and the land on each side
+' (an inner slope beside the road and the outer hills beyond it).
 sub ProjectRoad(r as Object, s as Object)
     cfg = s.cfg
     scale = cfg.course.curveScale
     maxD = cfg.track.drawDist
     camEl = ElevAt(cfg, s.player.s) + cfg.camera.height + KartHop(cfg, s.player) * cfg.camera.airFollow
-    hy = cfg.screen.horizonY
+    hy = r.hy
+    slope = cfg.terrain.slope
+    flatRight = r.theme.DoesExist("rightGround")
     x = 0.0
-    slope = 0.0
+    sl = 0.0
     prevD = 0.0
-    clip = cfg.screen.h
+    cx = r.W / 2
+    clips = []
+    for t = 0 to 6
+        clips.Push(r.H)
+    end for
     for i = r.bands.Count() - 1 to 0 step -1
         b = r.bands[i]
         d = b.d
         if d > maxD then d = maxD
         dd = d - prevD
         z = s.camZ + d
-        slope = slope + CurveAt(cfg, z) * scale * dd
-        x = x + slope * dd
+        sl = sl + CurveAt(cfg, z) * scale * dd
+        x = x + sl * dd
         prevD = d
         y = Int(hy + (camEl - ElevAt(cfg, z)) * b.ppu)
+        hl = SideAt(cfg, z, 0)
+        hr = SideAt(cfg, z, 1)
+        if flatRight then hr = -0.3
         r.sx[i] = x
         r.sy[i] = y
-        r.clipAt[i] = clip
-        r.seen[i] = y < clip and b.d <= maxD
-        if r.seen[i] then clip = y
+        r.hL[i] = hl
+        r.hR[i] = hr
+        ' each strip of land, and the road, is a height line seen from the camera: a slice shows only the rows
+        ' above everything nearer, so keep the lowest top row seen so far per strip (its clip)
+        ys = [y, y - hl * b.ppu, y - hl * (0.5 + slope / 2) * b.ppu, y - hl * slope * b.ppu, y - hr * b.ppu, y - hr * (0.5 + slope / 2) * b.ppu, y - hr * slope * b.ppu]
+        ' a strip only hides what's behind it where it is actually on screen (near the camera the road is so wide
+        ' that the land beside it is off the edges)
+        pieces = RoadPieces(cfg, TrackPos(cfg, z))
+        camX = s.camX - x
+        xl = cx + (pieces[0].x0 - 0.14 - camX) * b.ppu
+        xr = cx + (pieces[pieces.Count() - 1].x1 + 0.14 - camX) * b.ppu
+        shw = cfg.terrain.shoulder * b.ppu
+        onScreen = [true, xl - 2 * shw > 0, xl - shw > 0, xl > 0, xr + 2 * shw < r.W, xr + shw < r.W, xr < r.W]
+        for t = 0 to 6
+            r.ty[t][i] = ys[t]
+            r.tc[t][i] = clips[t]
+            if onScreen[t] and ys[t] < clips[t] then clips[t] = ys[t]
+        end for
     end for
 end sub
 
-sub DrawRoad(r as Object, s as Object, scr as Object, cx as Float)
+' Paint the world far to near: each road sample's slice of land, road and tunnel, with every object slotted in
+' at its depth, so nearer hills, crests and tunnel walls hide whatever is behind them, even on bends.
+sub DrawWorld(r as Object, s as Object, scr as Object, cx as Float)
     cfg = s.cfg
-    W = cfg.screen.w
-    stripeLen = cfg.track.stripeLen
-    n = cfg.lanes.count
-    half = n / 2.0
-    lanes = r.theme.laneStyle
-    void = r.below <> invalid
-    for i = r.bands.Count() - 1 to 0 step -1
-        if r.seen[i] then
-            b = r.bands[i]
-            y = r.sy[i]
-            h = r.clipAt[i] - y
-            if h < 1 then h = 1
-            z = s.camZ + b.d
-            stripe = Int(z / stripeLen) and 1
-            if GapAt(cfg, z) then
-                ' The gap of a jump: no road, a dark chasm (or just sky in a void world).
-                if not void then scr.DrawRect(0, y, W, h, b.chasm[stripe])
-            else
-                if not void then scr.DrawRect(0, y, W, h, b.ground[stripe])
-                camX = s.camX - r.sx[i]
-                sm = TrackPos(cfg, z)
-                row = 0
-                if r.tex <> invalid then row = Int(z * r.texPerUnit) mod r.texRows.Count()
-                if row < 0 then row = row + r.texRows.Count()
-                fork = ForkAt(cfg, sm)
-                if fork = invalid then
-                    DrawRoadPiece(r, scr, b, y, h, cx, camX, -half, half, n, stripe, lanes, row)
-                    if b.DoesExist("right") then
-                        rx = cx + (half - camX) * b.ppu + 2.2 * b.ppu
-                        if rx < W then scr.DrawRect(rx, y, W - rx, h, b.right[stripe])
-                    end if
-                else
-                    for each pc in RoadPieces(cfg, sm)
-                        DrawRoadPiece(r, scr, b, y, h, cx, camX, pc.x0, pc.x1, pc.lanes, stripe, lanes, row)
-                    end for
-                end if
-            end if
+    objs = WorldObjects(r, s)
+    n = r.bands.Count()
+    maxD = cfg.track.drawDist
+    j = 0
+    prevCy = -1
+    for i = 0 to n - 1
+        b = r.bands[i]
+        if b.d <= maxD then
+            while j < objs.Count() and objs[j].d >= b.d
+                DrawThing(r, s, scr, cx, objs[j])
+                j = j + 1
+            end while
+            prevCy = DrawSlice(r, s, scr, cx, i, prevCy)
         end if
     end for
+    while j < objs.Count()
+        DrawThing(r, s, scr, cx, objs[j])
+        j = j + 1
+    end while
 end sub
+
+' One sample's slice, from its own row down to the next nearer sample's row. Returns the tunnel ceiling row (or
+' -1) for the next slice.
+function DrawSlice(r as Object, s as Object, scr as Object, cx as Float, i as Integer, prevCy as Float) as Float
+    cfg = s.cfg
+    W = r.W
+    n = r.bands.Count()
+    b = r.bands[i]
+    z = s.camZ + b.d
+    sm = TrackPos(cfg, z)
+    stripe = Int(z / cfg.track.stripeLen) and 1
+    void = r.below <> invalid
+    y = r.sy[i]
+    yN = r.tc[0][i]
+    pieces = RoadPieces(cfg, sm)
+    camX = s.camX - r.sx[i]
+    ppu = b.ppu
+    xl = cx + (pieces[0].x0 - 0.14 - camX) * ppu
+    xr = cx + (pieces[pieces.Count() - 1].x1 + 0.14 - camX) * ppu
+    sh = cfg.terrain.shoulder * ppu
+    if GapAt(cfg, z) then
+        ' The gap of a jump: the land is cut away down to a river, the sea or an abyss.
+        if not void and yN > y then scr.DrawRect(0, y, W, yN - y, b.chasm[stripe])
+        return -1
+    end if
+    if not void then
+        ' land beside the track, three steps up from the road: the slope, a middle step, the hills
+        ty = r.ty
+        tc = r.tc
+        slope = cfg.terrain.slope
+        mid = 0.5 + slope / 2
+        LandRect(scr, 0, xl - 2 * sh, ty[1][i], tc[1][i], LandColor(b, r.hL[i], stripe))
+        LandRect(scr, xl - 2 * sh, xl - sh, ty[2][i], tc[2][i], LandColor(b, r.hL[i] * mid, stripe))
+        LandRect(scr, xl - sh, xl, ty[3][i], tc[3][i], LandColor(b, r.hL[i] * slope, stripe))
+        if r.theme.DoesExist("rightGround") then
+            LandRect(scr, xr, W, ty[4][i], tc[4][i], b.right[stripe])
+        else
+            LandRect(scr, xr + 2 * sh, W, ty[4][i], tc[4][i], LandColor(b, r.hR[i], stripe))
+            LandRect(scr, xr + sh, xr + 2 * sh, ty[5][i], tc[5][i], LandColor(b, r.hR[i] * mid, stripe))
+            LandRect(scr, xr, xr + sh, ty[6][i], tc[6][i], LandColor(b, r.hR[i] * slope, stripe))
+        end if
+    end if
+    if yN > y then
+        ' ground between split tracks, then the road itself
+        if not void and pieces.Count() > 1 then scr.DrawRect(xl, y, xr - xl, yN - y, b.ground[stripe])
+        row = 0
+        if r.tex <> invalid then row = Int(z * r.texPerUnit) mod r.texRows.Count()
+        if row < 0 then row = row + r.texRows.Count()
+        for each pc in pieces
+            DrawRoadPiece(r, scr, b, y, yN - y, cx, camX, pc.x0, pc.x1, pc.lanes, stripe, r.theme.laneStyle, row)
+        end for
+    end if
+    ' tunnels and tubes: walls and a ceiling
+    st = TubeStyle(cfg, z)
+    if st = "" then return -1
+    col = b.tube[st]
+    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height + KartHop(cfg, s.player) * cfg.camera.airFollow
+    cy = r.hy + (camEl - ElevAt(cfg, z) - 3.4) * ppu
+    sxl = cx + (pieces[0].x0 - 0.4 - camX) * ppu
+    sxr = cx + (pieces[pieces.Count() - 1].x1 + 0.4 - camX) * ppu
+    rib = Int(z / 2) and 1
+    if prevCy < 0 then prevCy = cy - 1
+    scr.DrawRect(sxl, cy, sxr - sxl, prevCy - cy + 1, col.ceil[rib])
+    if sxl > 0 then scr.DrawRect(0, cy, sxl, yN - cy, col.wall[rib])
+    if sxr < W then scr.DrawRect(sxr, cy, W - sxr, yN - cy, col.wall[rib])
+    if (Int(z) mod 8) = 0 and b.d > 6 then scr.DrawRect(sxl, cy, sxr - sxl, 0.06 * ppu + 1, col.light)
+    return cy
+end function
+
+sub LandRect(scr as Object, x0 as Float, x1 as Float, y0 as Float, y1 as Float, color as Integer)
+    if x1 <= x0 or y1 <= y0 then return
+    if x0 < 0 then x0 = 0
+    scr.DrawRect(x0, y0, x1 - x0, y1 - y0, color)
+end sub
+
+' Land color by height: grass low down, rock up the mountains, snow on the tops.
+function LandColor(b as Object, h as Float, stripe as Integer) as Integer
+    if h > 16 then return b.snow
+    if h > 9 then return b.rock[stripe]
+    if h > 3 then return b.landLight[stripe]
+    if h < -1.2 then return b.landDark[stripe]
+    return b.land[stripe]
+end function
 
 sub DrawRoadPiece(r as Object, scr as Object, b as Object, y as Float, h as Float, cx as Float, camX as Float, x0 as Float, x1 as Float, lanes as Integer, stripe as Integer, laneStyle as String, row as Integer)
     ppu = b.ppu
@@ -241,43 +416,6 @@ sub DrawRoadPiece(r as Object, scr as Object, b as Object, y as Float, h as Floa
     end if
 end sub
 
-' Tubes: walls and a ceiling, painted far to near so nearer ribs cover farther ones.
-sub DrawTubes(r as Object, s as Object, scr as Object, cx as Float)
-    cfg = s.cfg
-    if cfg.course.tunnels.Count() = 0 and not r.hasTubes then return
-    W = cfg.screen.w
-    hy = cfg.screen.horizonY
-    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height + KartHop(cfg, s.player) * cfg.camera.airFollow
-    tubeH = 3.4
-    prevCy = -1
-    for i = 0 to r.bands.Count() - 1
-        b = r.bands[i]
-        z = s.camZ + b.d
-        st = ""
-        if b.d <= cfg.track.drawDist then st = TubeStyle(cfg, z)
-        if st <> "" then
-            col = b.tube[st]
-            camX = s.camX - r.sx[i]
-            pieces = RoadPieces(cfg, TrackPos(cfg, z))
-            sxl = cx + (pieces[0].x0 - 0.4 - camX) * b.ppu
-            sxr = cx + (pieces[pieces.Count() - 1].x1 + 0.4 - camX) * b.ppu
-            cy = hy + (camEl - ElevAt(cfg, z) - tubeH) * b.ppu
-            y = r.sy[i]
-            rib = Int(z / 2) and 1
-            if prevCy < 0 then prevCy = cy - 1
-            scr.DrawRect(sxl, cy, sxr - sxl, prevCy - cy + 1, col.ceil[rib])
-            if sxl > 0 then scr.DrawRect(0, cy, sxl, y - cy, col.wall[rib])
-            if sxr < W then scr.DrawRect(sxr, cy, W - sxr, y - cy, col.wall[rib])
-            if (Int(z) mod 8) = 0 and b.d > 6 then
-                scr.DrawRect(sxl, cy, sxr - sxl, 0.06 * b.ppu + 1, col.light)
-            end if
-            prevCy = cy
-        else
-            prevCy = -1
-        end if
-    end for
-end sub
-
 ' Wall, ceiling and light colors for each tube style. A world can override steel with tubeWall/tubeCeil.
 function TubeColors(theme as Object) as Object
     out = {
@@ -290,14 +428,17 @@ function TubeColors(theme as Object) as Object
     return out
 end function
 
-sub DrawRidge(scr as Object, bmp as Object, shift as Float, hy as Integer)
+sub DrawRidge(scr as Object, bmp as Object, shift as Float, hy as Integer, W as Integer)
     if bmp = invalid then return
-    w = bmp.GetWidth()
-    x = -(Int(shift) mod w)
-    if x > 0 then x = x - w
+    bw = bmp.GetWidth()
+    x = -(Int(shift) mod bw)
+    if x > 0 then x = x - bw
     y = hy - bmp.GetHeight()
     scr.DrawObject(x, y, bmp)
-    if x + w < 1280 then scr.DrawObject(x + w, y, bmp)
+    while x + bw < W
+        x = x + bw
+        scr.DrawObject(x, y, bmp)
+    end while
 end sub
 
 ' Sample index for depth d.
@@ -308,38 +449,10 @@ function SampleAt(r as Object, s as Object, d as Float) as Integer
     return r.rowBand[row]
 end function
 
-' Girders hanging under the track's edges into the void, drawn before the road so nearer road covers them.
-sub DrawHanging(r as Object, s as Object, scr as Object, cx as Float)
-    th = r.theme
-    if not th.DoesExist("hang") then return
-    cfg = s.cfg
-    lv = r.sprites.byName[th.hang]
-    if lv = invalid then return
-    every = th.hangEvery
-    far = cfg.track.drawDist
-    tpos = (Int(s.camZ / every) + 1) * every
-    list = []
-    while tpos < s.camZ + far
-        list.Unshift(tpos)
-        tpos = tpos + every
-    end while
-    for each tp in list
-        d = tp - s.camZ
-        if d > cfg.camera.nearDepth then
-            i = SampleAt(r, s, d)
-            ppu = cfg.camera.k / d
-            img = lv[SpriteLevel(r.sprites, ppu)]
-            pieces = RoadPieces(cfg, TrackPos(cfg, tp))
-            for each xe in [pieces[0].x0 - 1.1, pieces[pieces.Count() - 1].x1 + 1.1]
-                sx = cx + (xe - s.camX + r.sx[i]) * ppu
-                scr.DrawObject(sx - img.w / 2, r.sy[i] - 0.6 * ppu, img.bmp)
-            end for
-        end if
-    end for
-end sub
-
-' Scenery, landmarks, item blocks, traffic, shells, bananas and karts, painted far to near.
-sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
+' Everything drawn as a sprite this frame, far to near: scenery on the land, landmarks, loops, tunnel mouths,
+' ramps, hanging girders, item blocks, traffic, pucks, bananas and karts. `land` puts a thing on the slope (1)
+' or the hills (2) beside the road instead of on the road; `top` hangs it from the road's edge.
+function WorldObjects(r as Object, s as Object) as Object
     cfg = s.cfg
     nearD = cfg.camera.nearDepth
     far = cfg.track.drawDist
@@ -352,15 +465,23 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
     tpos = (Int(s.camZ / every) + 1) * every
     while tpos < s.camZ + far
         d = tpos - s.camZ
-        if d > nearD then
+        if d > nearD and not GapAt(cfg, tpos) then
             sm = TrackPos(cfg, tpos)
             pieces = RoadPieces(cfg, sm)
             idx = Int(tpos / every)
             kinds = th.scenery
-            kind = kinds[idx mod kinds.Count()]
             gap = th.gap
-            list.Push({ d: d, x: pieces[0].x0 - gap, k: kind, h: 0 })
-            if not th.DoesExist("rightGround") then list.Push({ d: d, x: pieces[pieces.Count() - 1].x1 + gap, k: kinds[(idx + 1) mod kinds.Count()], h: 0 })
+            if r.below = invalid then
+                list.Push({ d: d, x: pieces[0].x0 - gap, k: kinds[idx mod kinds.Count()], h: 0, land: 1, side: 0 })
+                list.Push({ d: d + 0.01, x: pieces[0].x0 - gap - 5, k: kinds[(idx + 2) mod kinds.Count()], h: 0, land: 2, side: 0 })
+                if not th.DoesExist("rightGround") then
+                    list.Push({ d: d, x: pieces[pieces.Count() - 1].x1 + gap, k: kinds[(idx + 1) mod kinds.Count()], h: 0, land: 1, side: 1 })
+                    list.Push({ d: d + 0.01, x: pieces[pieces.Count() - 1].x1 + gap + 5, k: kinds[(idx + 3) mod kinds.Count()], h: 0, land: 2, side: 1 })
+                end if
+            else
+                list.Push({ d: d, x: pieces[0].x0 - gap, k: kinds[idx mod kinds.Count()], h: 0 })
+                list.Push({ d: d, x: pieces[pieces.Count() - 1].x1 + gap, k: kinds[(idx + 1) mod kinds.Count()], h: 0 })
+            end if
             for j = 1 to pieces.Count() - 1
                 if pieces[j].x0 - pieces[j - 1].x1 > 2.0 then
                     mk = kinds[0]
@@ -371,6 +492,20 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
         end if
         tpos = tpos + every
     end while
+
+    if th.DoesExist("hang") then
+        every = th.hangEvery
+        tpos = (Int(s.camZ / every) + 1) * every
+        while tpos < s.camZ + far
+            d = tpos - s.camZ
+            if d > nearD then
+                pieces = RoadPieces(cfg, TrackPos(cfg, tpos))
+                list.Push({ d: d, x: pieces[0].x0 - 1.1, k: th.hang, h: 0, top: true })
+                list.Push({ d: d, x: pieces[pieces.Count() - 1].x1 + 1.1, k: th.hang, h: 0, top: true })
+            end if
+            tpos = tpos + every
+        end while
+    end if
 
     lapBase = Int(s.camZ / L) * L
     for rep = 0 to 1
@@ -397,7 +532,17 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
         if th.DoesExist("landmarks") then
             for each lm in th.landmarks
                 d = lapBase + rep * L + lm.at - s.camZ
-                if d > nearD and d < far then list.Push({ d: d, x: lm.x, k: lm.k, h: 0 })
+                if d > nearD and d < far then
+                    o = { d: d, x: lm.x, k: lm.k, h: 0 }
+                    if lm.x < -4 then
+                        o.land = 2
+                        o.side = 0
+                    else if lm.x > 4 then
+                        o.land = 2
+                        o.side = 1
+                    end if
+                    list.Push(o)
+                end if
             end for
         end if
     end for
@@ -420,41 +565,57 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
         if spr.angled then ang = KartAngle(cfg, kt)
         if kt.isBot then
             list.Push({ d: kt.s - s.camZ, x: KartX(s, kt) + wob, k: "kart" + kt.id.ToStr() + ang, h: hop })
-        else
+        else if not r.skipPlayer then
             list.Push({ d: cfg.camera.playerDepth, x: KartX(s, kt) + wob, k: "player" + ang, h: hop })
         end if
     end for
-
-    list.SortBy("d", "r")
-    k = cfg.camera.k
+    keep = []
     for each o in list
-        if o.d > nearD and o.d < far then
-            i = SampleAt(r, s, o.d)
-            ppu = k / o.d
-            sx = cx + (o.x - s.camX + r.sx[i]) * ppu
-            sy = r.sy[i] - o.h * ppu
-            if Left(o.k, 6) = "player" then
-                DrawKart(r, s, scr, sx, sy, o.k)
-            else
-                lv = spr.byName[o.k]
-                if lv <> invalid then
-                    img = lv[SpriteLevel(spr, ppu)]
-                    clip = r.clipAt[i]
-                    top = sy - img.h
-                    if sy <= clip + 1 then
-                        scr.DrawObject(sx - img.w / 2, top, img.bmp)
-                    else if clip > top then
-                        ' Partly behind a crest: draw only the part above the nearer road.
-                        part = CreateObject("roRegion", img.bmp, 0, 0, img.w, Int(clip - top))
-                        scr.DrawObject(sx - img.w / 2, top, part)
-                    end if
-                end if
-            end if
-        end if
+        if o.d > nearD and o.d < far then keep.Push(o)
     end for
+    keep.SortBy("d", "r")
+    return keep
+end function
+
+sub DrawThing(r as Object, s as Object, scr as Object, cx as Float, o as Object)
+    cfg = s.cfg
+    i = SampleAt(r, s, o.d)
+    ppu = cfg.camera.k / o.d
+    sx = cx + (o.x - s.camX + r.sx[i]) * ppu
+    sy = r.sy[i]
+    if o.DoesExist("land") then
+        ' on the slope (land 1) or the hills (land 2), left (side 0) or right
+        t = 3
+        if o.land = 2 then t = 1
+        if o.side = 1 then t = t + 3
+        sy = r.ty[t][i]
+    end if
+    sy = sy - o.h * ppu
+    if Left(o.k, 6) = "player" then
+        DrawKart(r, s, scr, sx, sy, o.k)
+        return
+    end if
+    lv = r.sprites.byName[o.k]
+    if lv = invalid then return
+    img = lv[SpriteLevel(r.sprites, ppu)]
+    if o.DoesExist("top") then
+        scr.DrawObject(sx - img.w / 2, sy - 0.6 * ppu, img.bmp)
+    else
+        scr.DrawObject(sx - img.w / 2, sy - img.h, img.bmp)
+    end if
 end sub
 
-'' How high a kart is off the road: a lane-change hop plus airtime.
+'' Your kart drawn straight onto the screen at its usual spot, over a rolled or pitched world.
+sub DrawPlayerUpright(r as Object, s as Object)
+    cfg = s.cfg
+    ppu = cfg.camera.k / cfg.camera.playerDepth
+    hop = KartHop(cfg, s.player) * (1 - cfg.camera.airFollow)
+    name = "player"
+    if r.sprites.angled then name = "player" + KartAngle(cfg, s.player)
+    DrawKart(r, s, r.screen, cfg.screen.w / 2 + (PlayerX(s) - s.camX) * ppu, cfg.screen.horizonY + (cfg.camera.height - hop) * ppu, name)
+end sub
+
+' How high a kart is off the road: a lane-change hop plus airtime.
 function KartHop(cfg as Object, k as Object) as Float
     hop = 0
     if k.jumpT > 0 then hop = Sin(3.14159 * k.jumpT / cfg.lanes.jumpTime) * cfg.lanes.jumpHeight

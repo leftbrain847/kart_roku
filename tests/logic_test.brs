@@ -396,6 +396,7 @@ sub TestWorlds(t as Object)
     PrepareCourse(c2)
     Check(t, TubeAt(c2, 400) and not TubeAt(c2, 250), "sky track has a tube")
     Check(t, Abs(RollAt(c2, 590) - 180) < 5, "corkscrew is upside down halfway")
+    Check(t, SideAt(c2, 100, 0) = 0, "no land beside the sky track")
     Check(t, RollAt(c2, 400) = 0, "no roll outside the corkscrew")
     c3 = GameConfig()
     Check(t, c3.tracks.Count() >= 14 and c3.roster.Count() = 8, "title screen offers 14 tracks and 8 racers")
@@ -421,7 +422,7 @@ sub TestThrills(t as Object)
         twist = false
         for u = 0 to cfg.track.length - 1
             if Abs(cfg.course.elev[u]) > 3 then hills = true
-            if Abs(cfg.course.roll[u]) > 170 then twist = true
+            if Abs(cfg.course.roll[u]) > 170 or cfg.course.pitch[u] > 170 then twist = true
         end for
         if not hills or not twist then
             every = false
@@ -436,9 +437,9 @@ sub TestThrills(t as Object)
     PrepareCourse(cfg)
     Check(t, cfg.course.loops.Count() = 1 and cfg.course.loops[0] = 250, "meadow's loop starts at 250")
     top = ElevAt(cfg, 325)
-    Check(t, top > ElevAt(cfg, 250) + 20, "a loop climbs its wall")
+    Check(t, top > ElevAt(cfg, 250) + 4, "a loop climbs")
     Check(t, Abs(ElevAt(cfg, 399.5) - ElevAt(cfg, 250)) < 6, "and drops back out")
-    Check(t, Abs(RollAt(cfg, 325) - 180) < 3, "upside down at the top of the loop")
+    Check(t, Abs(PitchAt(cfg, 325) - 180) < 3 and Abs(RollAt(cfg, 325)) < 1, "a loop pitches over (no barrel roll): halfway round at its middle")
     Check(t, Abs(RollAt(cfg, 1280)) > 8, "banked turn tilts the view")
 
     ' Airtime off a sharp crest at speed, but not when slow, and never inside a loop.
