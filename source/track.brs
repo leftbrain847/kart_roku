@@ -115,6 +115,7 @@ sub PrepareCourse(cfg as Object)
     tubeTab = []
     gapTab = []
     loops = []
+    loopLens = []
     tunnels = []
     jumps = []
     ease = cfg.course.easeLen
@@ -144,6 +145,7 @@ sub PrepareCourse(cfg as Object)
             hump = sec.len * cfg.course.loopHeight
             pitch = 360
             loops.Push(at)
+            loopLens.Push(sec.len)
         end if
         ' Gentle rises and dips everywhere except where the road must stay true (loops, tubes, jumps).
         calm = isLoop or tube <> "" or gap
@@ -190,6 +192,7 @@ sub PrepareCourse(cfg as Object)
     cfg.course.tube = tubeTab
     cfg.course.gap = gapTab
     cfg.course.loops = loops
+    cfg.course.loopLens = loopLens
     cfg.course.tunnels = tunnels
     cfg.course.jumps = jumps
     PrepareTerrain(cfg)
@@ -233,6 +236,17 @@ function CrestAt(cfg as Object, s as Float) as Float
     L = cfg.track.length
     i = Int(TrackPos(cfg, s))
     return e[(i + 2) mod L] - 2 * e[i] + e[(i - 2 + L) mod L]
+end function
+
+' Length of the loop at s (the first loop if s is in none).
+function LoopLenAt(cfg as Object, s as Float) as Float
+    sm = TrackPos(cfg, s)
+    for i = 0 to cfg.course.loops.Count() - 1
+        a = cfg.course.loops[i]
+        if sm >= a and sm < a + cfg.course.loopLens[i] then return cfg.course.loopLens[i]
+    end for
+    if cfg.course.loopLens.Count() > 0 then return cfg.course.loopLens[0]
+    return 150
 end function
 
 ' Loop progress at s in degrees: 0 -> 360 as you go round a loop, 0 elsewhere.

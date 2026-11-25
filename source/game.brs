@@ -31,7 +31,7 @@ function NewKart(cfg as Object, id as Integer, name as String, lane as Integer, 
     return {
         id: id, name: name, isBot: id > 0, body: body
         s: startS, lane: lane, laneF: lane, speed: cfg.speed.start, skill: skill
-        boostT: 0, spinT: 0, jumpT: 0, airT: 0, airDur: 1, airH: 0, item: ""
+        boostT: 0, spinT: 0, jumpT: 0, airT: 0, airDur: 1, airH: 0, inLoop: false, item: ""
         think: 0, holdT: 0
     }
 end function
@@ -221,7 +221,7 @@ end function
 
 ' In the air from a lane jump or off a crest: no steering, no pickups, clears hazards.
 function Airborne(k as Object) as Boolean
-    return k.jumpT > 0 or k.airT > 0
+    return k.jumpT > 0 or k.airT > 0 or k.inLoop = true
 end function
 
 ' Move a kart one lane left or right. Every lane is a track; across an open gap it is a jump.
@@ -386,6 +386,7 @@ sub MoveKart(s as Object, k as Object, dt as Float)
     if k.spinT > 0 then k.spinT = k.spinT - dt
     if k.jumpT > 0 then k.jumpT = k.jumpT - dt
     if k.airT > 0 then k.airT = k.airT - dt
+    k.inLoop = PitchAt(cfg, k.s) > 0
     top = TopSpeed(s, k)
     acc = cfg.speed.accel
     if k.boostT > 0 then acc = cfg.speed.boostAccel
