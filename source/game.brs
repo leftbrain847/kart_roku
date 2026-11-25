@@ -413,7 +413,7 @@ sub MoveKart(s as Object, k as Object, dt as Float)
             end if
         end if
     end for
-    if k.airT <= 0 and k.speed >= ac.minSpeed and CrestAt(cfg, k.s) < ac.crest and Abs(RollAt(cfg, k.s)) < 20 then
+    if k.airT <= 0 and k.speed >= ac.minSpeed and CrestAt(cfg, k.s) < ac.crest and Abs(RollAt(cfg, k.s)) < 20 and PitchAt(cfg, k.s) = 0 then
         k.airT = ac.time
         k.airDur = ac.time
         k.airH = ac.height

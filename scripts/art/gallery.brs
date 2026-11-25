@@ -18,6 +18,14 @@ sub Main(args as Dynamic)
         { w: "jungle", r: "triceracart", at: 557, sim: 0.4, name: "jungle_jump", label: "FERNBACK JUNGLE  river jump" }
         { w: "snow", r: "jelly", at: 736, sim: 0.1, name: "snow_tunnel", label: "SNOW PASS  mountain tunnel" }
         { w: "skytrack", r: "toaster", at: 927, sim: 0.45, name: "sky_jump", label: "GIRDER SKY  platform jump" }
+        { w: "meadow", r: "toaster", at: 1100, sim: 0.1, name: "terr_meadow", label: "GREEN MEADOW  hills and valleys" }
+        { w: "snow", r: "jelly", at: 1020, sim: 0.1, name: "terr_snow", label: "SNOW PASS  mountains" }
+        { w: "desert", r: "triceracart", at: 1250, sim: 0.1, name: "terr_desert", label: "MESA DESERT  rolling dunes" }
+        { w: "volcano", r: "gearsnail", at: 1450, sim: 0.1, name: "terr_volcano", label: "LAVA FIELDS  ridges" }
+        { w: "pebble", r: "hermit", at: 1590, sim: 0.1, name: "loop_a", label: "PEBBLE COVE  loop entry" }
+        { w: "pebble", r: "hermit", at: 1640, sim: 0.1, name: "loop_b", label: "PEBBLE COVE  up the loop" }
+        { w: "pebble", r: "hermit", at: 1680, sim: 0.1, name: "loop_c", label: "PEBBLE COVE  top of the loop" }
+        { w: "pebble", r: "hermit", at: 1720, sim: 0.1, name: "loop_d", label: "PEBBLE COVE  coming down" }
     ]
     for each sh in shots
         if only = "" or Instr(1, sh.name, only) > 0 then Shot(screen, font, sh)
