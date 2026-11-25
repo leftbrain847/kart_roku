@@ -2,7 +2,7 @@
 
 A kart racer for Roku TVs, written in BrightScript. Pick a track and a racer on the title screen, then race three bots over 3 laps. Five lanes, every lane its own track; where the road splits into 2 or 3 tracks, Left/Right jumps the gap. Item blocks (puck, banana, boost), light traffic, race position, lap timer and best lap per track.
 
-**Tracks:** three worlds with hills, crests, textured roads and their own racers (Fernback Jungle, Girder Sky with a tube and a corkscrew, Pebble Cove), plus ten classic road themes. **Racers:** six 3D-rendered characters (Raptor Hatchling, Trike, Toaster Tank, Gear Snail, Hermit Conch, Jelly Jet), each drawn at three angles so they lean into turns.
+**Tracks:** 14. Four worlds with their own racers and scenery (Whirligig Woods, Fernback Jungle, Girder Sky, Pebble Cove) plus ten classic road themes. Every track has curves, hills and drops, a banked turn, a loop or barrel roll, a jump over a gap and a tunnel into a mountain (or a steel tube); karts catch air off sharp crests. **Racers:** eight 3D-rendered characters (Raptor Hatchling, Trike, Toaster Tank, Gear Snail, Hermit Conch, Jelly Jet, Teapot Turbo, Tub Duck), each drawn at three angles so they lean into turns.
 
 **Download:** [kart_roku.zip](https://github.com/leftbrain847/kart_roku/releases/latest/download/kart_roku.zip) (latest release; sideload it, see below)
 
@@ -35,7 +35,7 @@ npm test
 Runs the brighterscript compiler checks, 100+ game-rule unit tests (including world courses: hills, tubes, corkscrew) and a 700-frame scripted race (countdown, items, pause menu, a jump across a split, 3 bots) followed by a render pass through all three worlds in the `brs-cli` simulator, builds the zip and runs it through the security gate. CI runs the same.
 
 ## Tune it
-Every tunable is in `GameConfig()` in [`source/config.brs`](source/config.brs): lanes and jump feel, laps and countdown, speeds and boost, the default course, split zones, item odds, bots, traffic, camera, render bands, fog, the title-screen track list and the racer roster. Worlds (their courses with `rise` hills, `tube` and `roll` sections, split names, racers and landmarks) and road themes live in [`source/themes.brs`](source/themes.brs). `ValidateConfig` reports bad layouts at startup.
+Every tunable is in `GameConfig()` in [`source/config.brs`](source/config.brs): lanes and jump feel, laps and countdown, speeds and boost, the default course, split zones, item odds, bots, traffic, camera, render bands, fog, the title-screen track list and the racer roster. Worlds (their courses with `rise` hills, `bank`, `roll`, `loop`, `jump`, `tube` and `tunnel` sections, split names, racers and landmarks) and road themes live in [`source/themes.brs`](source/themes.brs). `ValidateConfig` reports bad layouts at startup.
 
 ## Art
 All art is generated, so it can be changed and rebuilt:
@@ -45,7 +45,10 @@ python3 scripts/art/make_art.py images/sprites        # items, roadside scenery,
 python3 scripts/art/characters.py images/sprites      # 3D racers, 3 angles each (signed-distance shapes, ray marched)
 python3 scripts/art/props.py images/sprites           # 3D props: dinosaur, girders, lighthouse, rock arch...
 python3 scripts/art/worlds.py images/sprites          # world skies, parallax layers, cloud sea, road textures
+python3 scripts/art/optimize.py images/sprites        # JPEG backgrounds + palette PNGs, so the zip fits
 ```
+Roku's older docs cap a sideloaded app at 2 MB zipped, so the package gate fails any zip over 1.9 MB; the art step keeps it under 1 MB.
+`scripts/art/gallery.brs` renders staged screenshots through the real game code (see its header).
 The game loads each PNG once per race and pre-scales it into 30 sizes; frames only copy bitmaps.
 
 ## How it stays fast on a Streaming Stick HD (3840R)

@@ -202,12 +202,75 @@ def pebble():
     return out
 
 
+# ---------- whirligig woods ----------
+def whirligig():
+    out = {}
+    sky = grad(1280, 250, [(0, (150, 120, 220)), (0.55, (250, 190, 220)), (1, (255, 236, 200))])
+    S = SS
+    im = big(1280, 250)
+    d = ImageDraw.Draw(im)
+    rnd = random.Random(21)
+    # mountains hanging upside down from the top of the sky, snowcaps at their tips
+    for x0, ww, hh, col in ((60, 260, 120, (170, 140, 230)), (420, 200, 90, (190, 150, 235)), (900, 300, 140, (160, 130, 220)), (1150, 180, 80, (185, 150, 230))):
+        tip = (x0 + ww / 2, hh)
+        d.polygon([(x0 * S, 0), ((x0 + ww) * S, 0), (tip[0] * S, tip[1] * S)], fill=col + (255,))
+        d.polygon([((tip[0] - ww * 0.12) * S, (hh * 0.78) * S), ((tip[0] + ww * 0.12) * S, (hh * 0.78) * S), (tip[0] * S, tip[1] * S)], fill=(255, 250, 255, 255))
+    # floating islands with grass tops and waterfalls
+    for cx, cy, w in ((300, 150, 120), (720, 110, 90), (1060, 170, 70)):
+        d.polygon([((cx - w) * S, cy * S), ((cx + w) * S, cy * S), (cx * S, (cy + w * 0.8) * S)], fill=(160, 120, 170, 255))
+        d.ellipse([(cx - w) * S, (cy - 12) * S, (cx + w) * S, (cy + 10) * S], fill=(140, 220, 170, 255))
+        d.rectangle([(cx + w * 0.4) * S, cy * S, (cx + w * 0.4 + 6) * S, (cy + 70) * S], fill=(200, 235, 255, 200))
+    # a spiral sun
+    for k in range(5):
+        r = 40 - k * 7
+        d.ellipse([(560 - r) * S, (60 - r) * S, (560 + r) * S, (60 + r) * S], fill=((255, 240, 160) if k % 2 == 0 else (255, 200, 120)) + (255,))
+    sky = Image.alpha_composite(sky, shrink(im, 1280, 250))
+    out["sky_whirligig.png"] = sky
+    w, h = 2048, 140
+    im = big(w, h)
+    d = ImageDraw.Draw(im)
+    cols = [(250, 170, 210), (170, 230, 210), (200, 180, 250), (255, 220, 170)]
+    for i in range(-1, 11):
+        x = i * 200 + rnd.randint(-30, 30)
+        ww = rnd.randint(220, 320)
+        hh = rnd.randint(60, h)
+        col = cols[i % 4]
+        d.ellipse([x * S, (h - hh) * S, (x + ww) * S, (h + hh) * S], fill=col + (255,))
+        for k in range(1, 4):
+            d.arc([(x + ww * 0.1 * k) * S, (h - hh + hh * 0.15 * k) * S, (x + ww - ww * 0.1 * k) * S, (h + hh) * S], 200, 340, fill=(255, 255, 255, 160), width=3 * S)
+    out["far_whirligig.png"] = shrink(tile_wrap(im, w), w, h)
+    im = big(w, 70)
+    d = ImageDraw.Draw(im)
+    for i in range(60):
+        x = rnd.randint(0, w)
+        r = rnd.randint(14, 28)
+        y = 70 - r - rnd.randint(0, 12)
+        d.line([x * S, y * S, x * S, 70 * S], fill=(250, 250, 250, 255), width=3 * S)
+        d.ellipse([(x - r) * S, (y - r) * S, (x + r) * S, (y + r) * S], fill=cols[i % 4] + (255,))
+        d.arc([(x - r * 0.6) * S, (y - r * 0.6) * S, (x + r * 0.6) * S, (y + r * 0.6) * S], 0, 300, fill=(255, 255, 255, 255), width=3 * S)
+    out["near_whirligig.png"] = shrink(tile_wrap(im, w), w, 70)
+    # candy swirl road: diagonal pastel stripes with sprinkles
+    tw, th = 1024, 128
+    img = Image.new("RGBA", (tw, th), (250, 236, 246, 255))
+    d = ImageDraw.Draw(img)
+    for k in range(-th, tw + th, 64):
+        d.polygon([(k, 0), (k + 32, 0), (k + 32 + th // 2, th), (k + th // 2, th)], fill=(255, 205, 228, 255))
+    rng = np.random.default_rng(22)
+    sprinkle = [(240, 80, 140), (80, 180, 240), (255, 210, 60), (120, 210, 140)]
+    for _ in range(500):
+        x, y = rng.integers(0, tw), rng.integers(0, th)
+        c = sprinkle[int(rng.integers(0, 4))]
+        d.line([x, y, x + 6, y + 2], fill=c + (255,), width=3)
+    out["road_whirligig.png"] = img
+    return out
+
+
 def main():
     import sys
     from pathlib import Path
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    for fn in (jungle, skytrack, pebble):
+    for fn in (jungle, skytrack, pebble, whirligig):
         for name, img in fn().items():
             img.save(out / name, optimize=True)
             print(name)

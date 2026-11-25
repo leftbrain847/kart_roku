@@ -12,6 +12,15 @@ function GameConfig() as Object
             jumpHeight: 0.55    ' hop height (units)
         }
 
+        air: {
+            crest: -0.004       ' a crest sharper than this (height change per 2 units, curving down) launches you; never in loops or rolls
+            minSpeed: 18        ' ...if you're at least this fast
+            time: 0.5           ' seconds in the air
+            height: 0.9         ' how high (units)
+            jumpHeight: 2.6     ' peak height flying a jump's gap
+            minJumpSpeed: 14    ' karts slower than this are given this speed at the ramp so they clear the gap
+        }
+
         race: {
             laps: 3             ' race length; 0 = endless laps
             countdown: 3        ' seconds of 3-2-1 before the start
@@ -49,6 +58,7 @@ function GameConfig() as Object
             curveScale: 0.0022  ' how sharply a curve of 1.0 bends on screen
             easeLen: 30         ' units to ease into and out of each curve
             parallax: 0.004     ' how far the hills slide per unit of curve driven
+            loopHeight: 0.18    ' a loop's hump is this fraction of its length
         }
 
         ' Split zones. At `start` gaps open between lane groups: `splits` lists the first lane of each new group
@@ -112,6 +122,7 @@ function GameConfig() as Object
             playerDepth: 3.0    ' kart's distance in front of the camera
             nearDepth: 1.96     ' depth of the bottom screen row
             followRate: 9       ' how fast the camera slides to the kart's x
+            airFollow: 0.75     ' share of your kart's height in the air the camera rises with
         }
 
         render: {
@@ -134,10 +145,10 @@ function GameConfig() as Object
 
         themeName: "jungle"      ' the track: a world or road theme from Themes() in themes.brs
         ' Racers: art is racer_<name>_<c|l|r>.png. racers[0] is you, the rest are the bots.
-        roster: ["hatchling", "triceracart", "toaster", "gearsnail", "hermit", "jelly"]
+        roster: ["hatchling", "triceracart", "toaster", "gearsnail", "hermit", "jelly", "teapot", "duckboat"]
         racers: ["hatchling", "triceracart", "toaster", "hermit"]
         ' Tracks offered on the title screen, in order: the three worlds, then the classic road themes.
-        tracks: ["jungle", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
+        tracks: ["whirligig", "jungle", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
         fog: { start: 25, end: 150, max: 0.8 }   ' road colors blend toward the sky color with distance
 
         bestKey: "best_lap_ms"   ' registry key for the best lap

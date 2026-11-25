@@ -31,7 +31,7 @@ function NewKart(cfg as Object, id as Integer, name as String, lane as Integer, 
     return {
         id: id, name: name, isBot: id > 0, body: body
         s: startS, lane: lane, laneF: lane, speed: cfg.speed.start, skill: skill
-        boostT: 0, spinT: 0, jumpT: 0, item: ""
+        boostT: 0, spinT: 0, jumpT: 0, airT: 0, airDur: 1, airH: 0, item: ""
         think: 0, holdT: 0
     }
 end function
@@ -83,7 +83,7 @@ sub ResetRace(s as Object)
     s.hazards = []
     s.msg = ""
     s.msgT = 0
-    s.stats = { items: 0, shellHits: 0, bumps: 0, spins: 0, boosts: 0, jumps: 0, botItems: 0 }
+    s.stats = { items: 0, shellHits: 0, bumps: 0, spins: 0, boosts: 0, jumps: 0, botItems: 0, airs: 0 }
     s.paused = false
     s.menuIndex = 0
 end sub
@@ -214,10 +214,20 @@ sub SetTraffic(s as Object, onOff as Boolean)
     if not onOff then s.traffic = []
 end sub
 
+function MaxF(a as Float, b as Float) as Float
+    if a > b then return a
+    return b
+end function
+
+' In the air from a lane jump or off a crest: no steering, no pickups, clears hazards.
+function Airborne(k as Object) as Boolean
+    return k.jumpT > 0 or k.airT > 0
+end function
+
 ' Move a kart one lane left or right. Every lane is a track; across an open gap it is a jump.
 ' Returns true if the kart moved.
 function Steer(s as Object, k as Object, dir as Integer) as Boolean
-    if k.spinT > 0 or k.jumpT > 0 then return false
+    if k.spinT > 0 or Airborne(k) then return false
     t = k.lane + dir
     if t < 0 or t > s.cfg.lanes.count - 1 then return false
     lo = k.lane
@@ -329,7 +339,7 @@ function UpdateGame(s as Object, dtIn as Float) as Object
         ' Item blocks: one per lane per row.
         myLane = Int(k.laneF + 0.5)
         for i = 0 to s.rows.Count() - 1
-            if k.jumpT <= 0 and Crossed(smPrev, sm, s.rows[i]) and s.blocks[i][myLane] <= s.time then
+            if not Airborne(k) and Crossed(smPrev, sm, s.rows[i]) and s.blocks[i][myLane] <= s.time then
                 s.blocks[i][myLane] = s.time + cfg.items.respawn
                 if k.item = "" then
                     k.item = RollItem(s)
@@ -375,6 +385,7 @@ sub MoveKart(s as Object, k as Object, dt as Float)
     if k.boostT > 0 then k.boostT = k.boostT - dt
     if k.spinT > 0 then k.spinT = k.spinT - dt
     if k.jumpT > 0 then k.jumpT = k.jumpT - dt
+    if k.airT > 0 then k.airT = k.airT - dt
     top = TopSpeed(s, k)
     acc = cfg.speed.accel
     if k.boostT > 0 then acc = cfg.speed.boostAccel
@@ -386,6 +397,28 @@ sub MoveKart(s as Object, k as Object, dt as Float)
         if k.speed < top then k.speed = top
     end if
     k.s = k.s + k.speed * dt
+    ' Airtime: off a jump ramp every kart flies the gap; fast over a sharp crest it leaves the road briefly.
+    ac = cfg.air
+    smA = TrackPos(cfg, k.s - k.speed * dt)
+    smB = TrackPos(cfg, k.s)
+    for each j in cfg.course.jumps
+        if Crossed(smA, smB, j.at) then
+            k.airDur = (j.len + 4) / MaxF(k.speed, ac.minJumpSpeed)
+            k.airT = k.airDur
+            k.airH = ac.jumpHeight
+            if k.speed < ac.minJumpSpeed then k.speed = ac.minJumpSpeed
+            if not k.isBot then
+                s.stats.airs = s.stats.airs + 1
+                Say(s, "BIG AIR!")
+            end if
+        end if
+    end for
+    if k.airT <= 0 and k.speed >= ac.minSpeed and CrestAt(cfg, k.s) < ac.crest and Abs(RollAt(cfg, k.s)) < 20 then
+        k.airT = ac.time
+        k.airDur = ac.time
+        k.airH = ac.height
+        if not k.isBot then s.stats.airs = s.stats.airs + 1
+    end if
     slide = dt / cfg.lanes.changeTime
     if k.laneF < k.lane then
         k.laneF = k.laneF + slide
@@ -500,7 +533,7 @@ sub KartContacts(s as Object, ev as Object)
         for j = i + 1 to ks.Count() - 1
             a = ks[i]
             b = ks[j]
-            if a.jumpT <= 0 and b.jumpT <= 0 and Abs(a.s - b.s) < 1.0 and Abs(KartX(s, a) - KartX(s, b)) < s.cfg.items.hitWidth then
+            if not Airborne(a) and not Airborne(b) and Abs(a.s - b.s) < 1.0 and Abs(KartX(s, a) - KartX(s, b)) < s.cfg.items.hitWidth then
                 rear = a
                 front = b
                 if a.s > b.s then
@@ -530,7 +563,7 @@ sub UpdateTraffic(s as Object, dt as Float, ev as Object)
         cx = ObjX(s, car.lane, car.s)
         hit = invalid
         for each k in s.karts
-            if hit = invalid and k.jumpT <= 0 and Near(s, cx, car.s, KartX(s, k), k.s) then hit = k
+            if hit = invalid and not Airborne(k) and Near(s, cx, car.s, KartX(s, k), k.s) then hit = k
         end for
         if car.s < p.s - tc.despawnBehind then
             ' gone behind
@@ -567,7 +600,7 @@ sub UpdateShots(s as Object, dt as Float, ev as Object)
         end for
         if not used then
             for each k in s.karts
-                if not used and k.id <> sh.owner and k.jumpT <= 0 and Near(s, KartX(s, k), k.s, sx, sh.s) then
+                if not used and k.id <> sh.owner and not Airborne(k) and Near(s, KartX(s, k), k.s, sx, sh.s) then
                     SpinOut(s, k, ev, "shell")
                     used = true
                     if sh.owner = 0 then
@@ -591,7 +624,7 @@ sub UpdateHazards(s as Object, dt as Float, ev as Object)
         bx = ObjX(s, b.lane, b.s)
         used = false
         for each k in s.karts
-            if not used and k.jumpT <= 0 and Near(s, bx, b.s, KartX(s, k), k.s) then
+            if not used and not Airborne(k) and Near(s, bx, b.s, KartX(s, k), k.s) then
                 SpinOut(s, k, ev, "banana")
                 used = true
             end if

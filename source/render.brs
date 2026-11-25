@@ -47,15 +47,24 @@ function NewRenderer(cfg as Object, screen as Object) as Object
         b.lane = MixColor(theme.lane, theme.fog, t)
         b.fogA = ((theme.fog << 8) or Int(t * 255)) ' fog veil over textured road
         if theme.DoesExist("rightGround") then b.right = [MixColor(theme.rightGround[0], theme.fog, t), MixColor(theme.rightGround[1], theme.fog, t)]
-        if theme.DoesExist("tubeWall") then
-            b.wall = [MixColor(theme.tubeWall[0], theme.fog, t * 0.5), MixColor(theme.tubeWall[1], theme.fog, t * 0.5)]
-            b.ceil = [MixColor(theme.tubeCeil[0], theme.fog, t * 0.5), MixColor(theme.tubeCeil[1], theme.fog, t * 0.5)]
-        end if
+        ' Tube and tunnel colors per style; tunnels fade to black inside, not to the sky.
+        b.tube = {}
+        tc = TubeColors(theme)
+        for each st in tc
+            c = tc[st]
+            ft = t * 0.5
+            fogc = theme.fog
+            if st <> "steel" then fogc = &h000000
+            b.tube[st] = { wall: [MixColor(c.wall[0], fogc, ft), MixColor(c.wall[1], fogc, ft)], ceil: [MixColor(c.ceil[0], fogc, ft), MixColor(c.ceil[1], fogc, ft)], light: (c.light << 8) or 255 }
+        end for
+        ch = [&h3A2E28, &h2E241F]
+        if theme.DoesExist("chasm") then ch = theme.chasm
+        b.chasm = [MixColor(ch[0], theme.fog, t * 0.7), MixColor(ch[1], theme.fog, t * 0.7)]
     end for
     art = "pkg:/images/sprites/"
     r = {
         theme: theme
-        sky: CreateObject("roBitmap", art + "sky_" + cfg.themeName + ".png")
+        sky: CreateObject("roBitmap", art + "sky_" + cfg.themeName + ".jpg")
         far: CreateObject("roBitmap", art + "far_" + cfg.themeName + ".png")
         near: CreateObject("roBitmap", art + "near_" + cfg.themeName + ".png")
         screen: screen
@@ -75,7 +84,7 @@ function NewRenderer(cfg as Object, screen as Object) as Object
         r.clipAt.Push(0)
         r.seen.Push(false)
     end for
-    if theme.DoesExist("void") and theme.void then r.below = CreateObject("roBitmap", art + "below_" + cfg.themeName + ".png")
+    if theme.DoesExist("void") and theme.void then r.below = CreateObject("roBitmap", art + "below_" + cfg.themeName + ".jpg")
     if theme.DoesExist("roadTex") then
         tex = CreateObject("roBitmap", art + theme.roadTex)
         if tex <> invalid then
@@ -87,6 +96,10 @@ function NewRenderer(cfg as Object, screen as Object) as Object
             r.texPerUnit = tex.GetHeight() / 6.0     ' one texture repeat every 6 units of road
         end if
     end if
+    r.hasTubes = false
+    for each st in cfg.course.tube
+        if st <> "" then r.hasTubes = true
+    end for
     if cfg.course.DoesExist("roll") then
         r.frame = CreateObject("roBitmap", { width: cfg.screen.w, height: cfg.screen.h, AlphaEnable: true })
     end if
@@ -118,7 +131,7 @@ sub DrawFrame(r as Object, s as Object)
     ProjectRoad(r, s)
     if r.below <> invalid then DrawHanging(r, s, scr, cx)
     DrawRoad(r, s, scr, cx)
-    if r.theme.DoesExist("tubeWall") then DrawTubes(r, s, scr, cx)
+    DrawTubes(r, s, scr, cx)
     DrawObjects(r, s, scr, cx)
 
     if rolled then
@@ -139,7 +152,7 @@ sub ProjectRoad(r as Object, s as Object)
     cfg = s.cfg
     scale = cfg.course.curveScale
     maxD = cfg.track.drawDist
-    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height
+    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height + KartHop(cfg, s.player) * cfg.camera.airFollow
     hy = cfg.screen.horizonY
     x = 0.0
     slope = 0.0
@@ -179,23 +192,28 @@ sub DrawRoad(r as Object, s as Object, scr as Object, cx as Float)
             if h < 1 then h = 1
             z = s.camZ + b.d
             stripe = Int(z / stripeLen) and 1
-            if not void then scr.DrawRect(0, y, W, h, b.ground[stripe])
-            camX = s.camX - r.sx[i]
-            sm = TrackPos(cfg, z)
-            row = 0
-            if r.tex <> invalid then row = Int(z * r.texPerUnit) mod r.texRows.Count()
-            if row < 0 then row = row + r.texRows.Count()
-            fork = ForkAt(cfg, sm)
-            if fork = invalid then
-                DrawRoadPiece(r, scr, b, y, h, cx, camX, -half, half, n, stripe, lanes, row)
-                if b.DoesExist("right") then
-                    rx = cx + (half - camX) * b.ppu + 2.2 * b.ppu
-                    if rx < W then scr.DrawRect(rx, y, W - rx, h, b.right[stripe])
-                end if
+            if GapAt(cfg, z) then
+                ' The gap of a jump: no road, a dark chasm (or just sky in a void world).
+                if not void then scr.DrawRect(0, y, W, h, b.chasm[stripe])
             else
-                for each pc in RoadPieces(cfg, sm)
-                    DrawRoadPiece(r, scr, b, y, h, cx, camX, pc.x0, pc.x1, pc.lanes, stripe, lanes, row)
-                end for
+                if not void then scr.DrawRect(0, y, W, h, b.ground[stripe])
+                camX = s.camX - r.sx[i]
+                sm = TrackPos(cfg, z)
+                row = 0
+                if r.tex <> invalid then row = Int(z * r.texPerUnit) mod r.texRows.Count()
+                if row < 0 then row = row + r.texRows.Count()
+                fork = ForkAt(cfg, sm)
+                if fork = invalid then
+                    DrawRoadPiece(r, scr, b, y, h, cx, camX, -half, half, n, stripe, lanes, row)
+                    if b.DoesExist("right") then
+                        rx = cx + (half - camX) * b.ppu + 2.2 * b.ppu
+                        if rx < W then scr.DrawRect(rx, y, W - rx, h, b.right[stripe])
+                    end if
+                else
+                    for each pc in RoadPieces(cfg, sm)
+                        DrawRoadPiece(r, scr, b, y, h, cx, camX, pc.x0, pc.x1, pc.lanes, stripe, lanes, row)
+                    end for
+                end if
             end if
         end if
     end for
@@ -226,28 +244,32 @@ end sub
 ' Tubes: walls and a ceiling, painted far to near so nearer ribs cover farther ones.
 sub DrawTubes(r as Object, s as Object, scr as Object, cx as Float)
     cfg = s.cfg
+    if cfg.course.tunnels.Count() = 0 and not r.hasTubes then return
     W = cfg.screen.w
     hy = cfg.screen.horizonY
-    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height
-    half = cfg.lanes.count / 2.0
+    camEl = ElevAt(cfg, s.player.s) + cfg.camera.height + KartHop(cfg, s.player) * cfg.camera.airFollow
     tubeH = 3.4
     prevCy = -1
     for i = 0 to r.bands.Count() - 1
         b = r.bands[i]
         z = s.camZ + b.d
-        if b.d <= cfg.track.drawDist and TubeAt(cfg, z) then
+        st = ""
+        if b.d <= cfg.track.drawDist then st = TubeStyle(cfg, z)
+        if st <> "" then
+            col = b.tube[st]
             camX = s.camX - r.sx[i]
-            sxl = cx + (-half - 0.4 - camX) * b.ppu
-            sxr = cx + (half + 0.4 - camX) * b.ppu
+            pieces = RoadPieces(cfg, TrackPos(cfg, z))
+            sxl = cx + (pieces[0].x0 - 0.4 - camX) * b.ppu
+            sxr = cx + (pieces[pieces.Count() - 1].x1 + 0.4 - camX) * b.ppu
             cy = hy + (camEl - ElevAt(cfg, z) - tubeH) * b.ppu
             y = r.sy[i]
             rib = Int(z / 2) and 1
             if prevCy < 0 then prevCy = cy - 1
-            scr.DrawRect(sxl, cy, sxr - sxl, prevCy - cy + 1, b.ceil[rib])
-            if sxl > 0 then scr.DrawRect(0, cy, sxl, y - cy, b.wall[rib])
-            if sxr < W then scr.DrawRect(sxr, cy, W - sxr, y - cy, b.wall[rib])
+            scr.DrawRect(sxl, cy, sxr - sxl, prevCy - cy + 1, col.ceil[rib])
+            if sxl > 0 then scr.DrawRect(0, cy, sxl, y - cy, col.wall[rib])
+            if sxr < W then scr.DrawRect(sxr, cy, W - sxr, y - cy, col.wall[rib])
             if (Int(z) mod 8) = 0 and b.d > 6 then
-                scr.DrawRect(sxl, cy, sxr - sxl, 0.06 * b.ppu + 1, (r.theme.tubeLight << 8) or 255)
+                scr.DrawRect(sxl, cy, sxr - sxl, 0.06 * b.ppu + 1, col.light)
             end if
             prevCy = cy
         else
@@ -255,6 +277,18 @@ sub DrawTubes(r as Object, s as Object, scr as Object, cx as Float)
         end if
     end for
 end sub
+
+' Wall, ceiling and light colors for each tube style. A world can override steel with tubeWall/tubeCeil.
+function TubeColors(theme as Object) as Object
+    out = {
+        steel: { wall: [&h3A3F55, &h454B64], ceil: [&h2C3044, &h343A50], light: &h7FE8FF }
+        rock: { wall: [&h4A3F36, &h55493E], ceil: [&h3A3029, &h44392F], light: &hFFB060 }
+        snow: { wall: [&h8FA8C8, &h9DB6D4], ceil: [&h6F88A8, &h7C94B4], light: &hDDF4FF }
+        candy: { wall: [&hF7A8D0, &hFFF2F8], ceil: [&hE88AC0, &hFFE0F0], light: &hFFFFA0 }
+    }
+    if theme.DoesExist("tubeWall") then out.steel = { wall: theme.tubeWall, ceil: theme.tubeCeil, light: theme.tubeLight }
+    return out
+end function
 
 sub DrawRidge(scr as Object, bmp as Object, shift as Float, hy as Integer)
     if bmp = invalid then return
@@ -348,6 +382,18 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
                 end for
             end if
         end for
+        for each l0 in cfg.course.loops
+            d = lapBase + rep * L + l0 - s.camZ
+            if d > nearD and d < far then list.Push({ d: d, x: 0, k: "loopring", h: 0 })
+        end for
+        for each tn in cfg.course.tunnels
+            d = lapBase + rep * L + tn.at - s.camZ - 0.5
+            if tn.style <> "steel" and d > nearD and d < far then list.Push({ d: d, x: 0, k: "portal_" + tn.style, h: 0 })
+        end for
+        for each jp in cfg.course.jumps
+            d = lapBase + rep * L + jp.at - s.camZ - 1.5
+            if d > nearD and d < far then list.Push({ d: d, x: 0, k: "ramp", h: 0 })
+        end for
         if th.DoesExist("landmarks") then
             for each lm in th.landmarks
                 d = lapBase + rep * L + lm.at - s.camZ
@@ -367,8 +413,7 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
     end for
     spr = r.sprites
     for each kt in s.karts
-        hop = 0
-        if kt.jumpT > 0 then hop = Sin(3.14159 * kt.jumpT / cfg.lanes.jumpTime) * cfg.lanes.jumpHeight
+        hop = KartHop(cfg, kt)
         wob = 0
         if kt.spinT > 0 then wob = Sin(kt.spinT * 40) * 0.12
         ang = ""
@@ -408,6 +453,14 @@ sub DrawObjects(r as Object, s as Object, scr as Object, cx as Float)
         end if
     end for
 end sub
+
+'' How high a kart is off the road: a lane-change hop plus airtime.
+function KartHop(cfg as Object, k as Object) as Float
+    hop = 0
+    if k.jumpT > 0 then hop = Sin(3.14159 * k.jumpT / cfg.lanes.jumpTime) * cfg.lanes.jumpHeight
+    if k.airT > 0 then hop = hop + Sin(3.14159 * k.airT / k.airDur) * k.airH
+    return hop
+end function
 
 ' Which pre-rendered angle to show: leaning into a lane change or a bend.
 function KartAngle(cfg as Object, k as Object) as String

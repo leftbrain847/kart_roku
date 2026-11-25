@@ -14,6 +14,8 @@ sub Main()
     TestLapsRaceAndBest(t)
     TestPauseAndKeys(t)
     TestWorlds(t)
+    TestThrills(t)
+    TestTunnelsAndJumps(t)
     print "RESULT pass=" + t.pass.ToStr() + " fail=" + t.fail.ToStr()
 end sub
 
@@ -396,8 +398,124 @@ sub TestWorlds(t as Object)
     Check(t, Abs(RollAt(c2, 590) - 180) < 5, "corkscrew is upside down halfway")
     Check(t, RollAt(c2, 400) = 0, "no roll outside the corkscrew")
     c3 = GameConfig()
-    Check(t, c3.tracks.Count() >= 13 and c3.roster.Count() = 6, "title screen offers 13 tracks and 6 racers")
+    Check(t, c3.tracks.Count() >= 14 and c3.roster.Count() = 8, "title screen offers 14 tracks and 8 racers")
     Check(t, TrackTitle("pebble") = "PEBBLE COVE" and RacerTitle("jelly") = "JELLY JET", "track and racer names")
     c3.course.sections[0].rise = 3
     Check(t, ValidateConfig(c3).Count() = 1, "unbalanced hills are reported")
+end sub
+
+sub TestThrills(t as Object)
+    names = []
+    names.Append(GameConfig().tracks)
+    allOk = true
+    every = true
+    for each n in names
+        cfg = GameConfig()
+        SetupRace(cfg, n, "toaster")
+        if ValidateConfig(cfg).Count() > 0 then
+            allOk = false
+            print "  invalid: " + n
+        end if
+        PrepareCourse(cfg)
+        hills = false
+        twist = false
+        for u = 0 to cfg.track.length - 1
+            if Abs(cfg.course.elev[u]) > 3 then hills = true
+            if Abs(cfg.course.roll[u]) > 170 then twist = true
+        end for
+        if not hills or not twist then
+            every = false
+            print "  missing hills or a loop/roll: " + n
+        end if
+    end for
+    Check(t, allOk, "every track's course is valid")
+    Check(t, every, "every track has hills and a loop or barrel roll")
+
+    cfg = GameConfig()
+    SetupRace(cfg, "meadow", "toaster")
+    PrepareCourse(cfg)
+    Check(t, cfg.course.loops.Count() = 1 and cfg.course.loops[0] = 250, "meadow's loop starts at 250")
+    top = ElevAt(cfg, 325)
+    Check(t, top > ElevAt(cfg, 250) + 20, "a loop climbs its wall")
+    Check(t, Abs(ElevAt(cfg, 399.5) - ElevAt(cfg, 250)) < 6, "and drops back out")
+    Check(t, Abs(RollAt(cfg, 325) - 180) < 3, "upside down at the top of the loop")
+    Check(t, Abs(RollAt(cfg, 1280)) > 8, "banked turn tilts the view")
+
+    ' Airtime off a sharp crest at speed, but not when slow, and never inside a loop.
+    c2 = GameConfig()
+    SetupRace(c2, "desert", "toaster")
+    s = NewGame(c2, 3)
+    s.countdown = 0
+    p = s.player
+    p.s = 292
+    p.speed = 26
+    Sim(s, 0.8)
+    Check(t, s.stats.airs >= 1, "fast over the crest of a drop gets airtime")
+    c3 = GameConfig()
+    SetupRace(c3, "desert", "toaster")
+    c3.speed.max = 8
+    s2 = NewGame(c3, 3)
+    s2.countdown = 0
+    s2.player.s = 292
+    s2.player.speed = 8
+    Sim(s2, 0.8)
+    Check(t, s2.stats.airs = 0, "no airtime when slow")
+    s3 = NewGame(cfg, 3)
+    s3.countdown = 0
+    s3.player.s = 290
+    s3.player.speed = 26
+    Sim(s3, 3)
+    Check(t, s3.stats.airs = 0, "no airtime over the top of a loop")
+    p.airT = 0.3
+    lane = p.lane
+    HandleKey(s, Keys().left)
+    Check(t, p.lane = lane, "no steering in the air")
+end sub
+
+sub TestTunnelsAndJumps(t as Object)
+    allT = true
+    allJ = true
+    for each n in GameConfig().tracks
+        cfg = GameConfig()
+        SetupRace(cfg, n, "teapot")
+        PrepareCourse(cfg)
+        if cfg.course.jumps.Count() = 0 then
+            allJ = false
+            print "  no jump: " + n
+        end if
+        tun = cfg.course.tunnels.Count() > 0
+        for each st in cfg.course.tube
+            if st <> "" then tun = true
+        end for
+        if not tun then
+            allT = false
+            print "  no tunnel: " + n
+        end if
+    end for
+    Check(t, allJ, "every track has a jump")
+    Check(t, allT, "every track has a tunnel or tube")
+
+    cfg = GameConfig()
+    SetupRace(cfg, "whirligig", "duckboat")
+    Check(t, ValidateConfig(cfg).Count() = 0, "whirligig course is valid")
+    PrepareCourse(cfg)
+    Check(t, TubeStyle(cfg, 300) = "candy" and cfg.course.tunnels[0].at = 200, "candy mountain tunnel at 200")
+    j = cfg.course.jumps[0]
+    Check(t, j.at = 560 and GapAt(cfg, 570) and not GapAt(cfg, 555) and not GapAt(cfg, 591), "jump gap at 560")
+    s = NewGame(cfg, 5)
+    s.countdown = 0
+    p = s.player
+    p.s = 550
+    p.speed = 26
+    ev = Sim(s, 0.5)
+    Check(t, p.airT > 0 and s.stats.airs >= 1, "the ramp launches you")
+    Sim(s, 2)
+    Check(t, p.airT <= 0 and p.s > j.at + j.len, "you land past the gap")
+    s2 = NewGame(cfg, 5)
+    s2.countdown = 0
+    s2.player.s = 559
+    s2.player.speed = 4
+    Sim(s2, 0.3)
+    Check(t, s2.player.speed >= cfg.air.minJumpSpeed, "a slow kart still clears the gap")
+    Check(t, RacerTitle("duckboat") = "TUB DUCK" and TrackTitle("whirligig") = "WHIRLIGIG WOODS", "new names")
 end sub
