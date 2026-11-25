@@ -47,6 +47,14 @@ test('POC gate: only the allowlisted media host, no HTTP client, no plain http',
   assert.match(bad([{ name: 'source/x.brs', data: Buffer.from('x = CreateObject("roUrlTransfer")') }]), /roUrlTransfer/);
   assert.match(bad([{ name: 'source/x.brs', data: Buffer.from('u = "http://raw.githubusercontent.com/x"') }]), /http:\/\//);
   assert.match(bad([{ name: 'source/k.brs', data: Buffer.from('k = "ghp_' + 'a'.repeat(36) + '"') }]), /secret/);
+  const P = 'https://raw.githubusercontent.com/leftbrain847/kart_roku/main/media/';
+  for (const sneaky of [P + '../../../../otheruser/repo/main/x.mp4', P + '%2e%2e/%2e%2e/x.mp4', 'HTTPS://evil.example.com/a.mp4',
+    'HTTP://evil.example.com/a', 'rtmp://evil.example.com/live', P.replace('https://', 'https://user@'), P + 'a\\..\\b']) {
+    assert.ok(bad([{ name: 'source/x.brs', data: Buffer.from(`u = "${sneaky}"`) }]).length > 0, `rejects ${sneaky}`);
+  }
+  assert.match(bad([{ name: 'source/x.brs', data: Buffer.from('u = "https:" + "//evil.example.com"') }]), /split URL scheme/);
+  assert.match(bad([{ name: 'data/x.json', data: Buffer.from('{"u":"https://evil.example.com/a.mp4"}') }]), /not on the allowlist/);
+  assert.match(bad([{ name: 'source/x.brs', data: Buffer.from('x = CreateObject("rourltransfer")') }]), /roUrlTransfer/);
   assert.ok(CFG.allowedUrls.some((p) => baseUrl.startsWith(p)), 'baseUrl is on the allowlist');
 });
 

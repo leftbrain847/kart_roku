@@ -55,6 +55,8 @@ test('the security gate rejects secrets, network code and stray files', () => {
   const good = collect();
   const bad = (extra) => checkZip(makeZip([...good, ...extra])).problems.join('\n');
   assert.match(bad([{ name: 'source/net.brs', data: Buffer.from('x = CreateObject("roUrlTransfer")') }]), /roUrlTransfer/);
+  assert.match(bad([{ name: 'source/net.brs', data: Buffer.from('x = CreateObject("ROURLTRANSFER")') }]), /roUrlTransfer/, 'BrightScript is case-insensitive');
+  assert.match(bad([{ name: 'source/net.brs', data: Buffer.from('u = "HTTPS://example.com"') }]), /https:\/\//);
   assert.match(bad([{ name: 'source/k.brs', data: Buffer.from('k = "ghp_' + 'a'.repeat(36) + '"') }]), /secret/);
   assert.match(bad([{ name: 'source/k.brs', data: Buffer.from('apiKey = "abcdefgh12345"') }]), /secret/);
   assert.match(bad([{ name: '.env', data: Buffer.from('X=1') }]), /not in an allowed folder/);

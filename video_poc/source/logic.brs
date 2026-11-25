@@ -325,13 +325,13 @@ function PlayerPos(race as Object) as Integer
 end function
 
 function FormatTime(sec as Float) as String
-    m = Int(sec / 60)
-    s = sec - m * 60
+    mins = Int(sec / 60)
+    s = sec - mins * 60
     whole = Int(s)
     hund = Int((s - whole) * 100)
     ss = whole.ToStr()
     if whole < 10 then ss = "0" + ss
     hs = hund.ToStr()
     if hund < 10 then hs = "0" + hs
-    return m.ToStr() + ":" + ss + "." + hs
+    return mins.ToStr() + ":" + ss + "." + hs
 end function

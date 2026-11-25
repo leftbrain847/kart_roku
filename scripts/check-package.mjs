@@ -15,6 +15,18 @@ function regex(src) {
   return src.startsWith('(?i)') ? new RegExp(src.slice(4), 'i') : new RegExp(src);
 }
 
+// Every URL-looking thing (any scheme, any case) must start with an allowed prefix exactly, with no path tricks
+// (.., %-escapes, @, backslashes), and no scheme may be split across strings ("https:" + "//...").
+export function urlProblems(name, text, allowed) {
+  const out = [];
+  for (const [url] of text.matchAll(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]*/gi)) {
+    if (!allowed.some((p) => url.startsWith(p))) out.push(`${name}: URL not on the allowlist: ${url}`);
+    else if (/\.\.|%|@|\\/.test(url)) out.push(`${name}: URL has a path trick: ${url}`);
+  }
+  for (const [hit] of text.matchAll(/\bhttps?:(?!\/\/)/gi)) out.push(`${name}: split URL scheme (${hit})`);
+  return out;
+}
+
 export function checkZip(buf, cfg = CONFIG) {
   const problems = [];
   if (buf.length > cfg.maxBytes) problems.push(`zip is ${buf.length} bytes, over ${cfg.maxBytes}`);
@@ -31,13 +43,12 @@ export function checkZip(buf, cfg = CONFIG) {
     if (name.split('/').some((part) => part.startsWith('.'))) problems.push(`${name}: hidden file`);
     const text = data.toString('latin1');
     for (const re of secrets) if (re.test(text)) problems.push(`${name}: looks like a secret (${re.source})`);
-    if (name === 'manifest' || name.endsWith('.brs') || name.endsWith('.xml')) {
-      for (const word of cfg.forbiddenCode) if (text.includes(word)) problems.push(`${name}: uses ${word} (the app makes no network calls of its own)`);
-      if (cfg.allowedUrls) {
-        for (const [url] of text.matchAll(/https?:\/\/[^\s"'<>]*/g)) {
-          if (!cfg.allowedUrls.some((p) => url.startsWith(p))) problems.push(`${name}: URL not on the allowlist: ${url}`);
-        }
-      }
+    const isCode = name === 'manifest' || ['.brs', '.xml', '.json'].includes(extname(name));
+    if (isCode) {
+      // BrightScript is case-insensitive, so match banned words regardless of case.
+      const lower = text.toLowerCase();
+      for (const word of cfg.forbiddenCode) if (lower.includes(word.toLowerCase())) problems.push(`${name}: uses ${word} (the app makes no network calls of its own)`);
+      if (cfg.allowedUrls) problems.push(...urlProblems(name, text, cfg.allowedUrls));
     }
     if (name === 'manifest') {
       const keys = new Set(text.split(/\r?\n/).map((l) => l.split('=')[0].trim()).filter(Boolean));
