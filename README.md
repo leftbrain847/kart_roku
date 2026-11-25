@@ -68,7 +68,7 @@ A second, separate app that tests a different idea: the track is **pre-rendered 
 - Karts are SceneGraph Posters over the Video node, drawn from 24 rendered angles and placed per frame from a lane table exported with each video (`video_poc/data/<world>.json`).
 - Down toggles the lane zoom (the picture scales 1.25× and centres your lane). `*` cycles three ways of switching to the fork (`playlist`: nextContentIndex; `seek`: one file, seek to the branch; `swap`: load the next file when one ends). The bottom line shows overlay fps, video state and the measured stall at each fork switch, so we can pick the method on the TV.
 
-Run: `npm run build:poc` -> `dist/kart_video_poc.zip`, `npm run check:poc` (security gate: the only URLs allowed are under the media base URL; no HTTP client, sockets or plain http), then sideload as above. The videos stream from `media/` in this repo (`baseUrl` in `video_poc/source/logic.brs`; point it at a Cloudflare R2 bucket later and add that prefix to `allowedUrls` in `scripts/video_poc.config.json`).
+Run: `npm run build:poc` -> `dist/kart_video_poc.zip`, `npm run check:poc` (security gate: every URL written in the code or data must sit under the media base URL; no HTTP client, sockets or plain http. It is a text scan, so a URL assembled from pieces would need code review to catch), then sideload as above. The videos stream from `media/` in this repo (`baseUrl` in `video_poc/source/logic.brs`; point it at a Cloudflare R2 bucket later and add that prefix to `allowedUrls` in `scripts/video_poc.config.json`).
 
 Re-render the media (not part of CI; needs ffmpeg and the preinstalled Playwright Chromium):
 ```

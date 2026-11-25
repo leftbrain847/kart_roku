@@ -17,6 +17,8 @@ function regex(src) {
 
 // Every URL-looking thing (any scheme, any case) must start with an allowed prefix exactly, with no path tricks
 // (.., %-escapes, @, backslashes), and no scheme may be split across strings ("https:" + "//...").
+// Limit: this is a text scan. Code that assembles a URL from pieces ("https" + Chr(58) + ...) can't be caught here;
+// that is what code review is for.
 export function urlProblems(name, text, allowed) {
   const out = [];
   for (const [url] of text.matchAll(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]*/gi)) {
@@ -48,7 +50,15 @@ export function checkZip(buf, cfg = CONFIG) {
       // BrightScript is case-insensitive, so match banned words regardless of case.
       const lower = text.toLowerCase();
       for (const word of cfg.forbiddenCode) if (lower.includes(word.toLowerCase())) problems.push(`${name}: uses ${word} (the app makes no network calls of its own)`);
-      if (cfg.allowedUrls) problems.push(...urlProblems(name, text, cfg.allowedUrls));
+      if (cfg.allowedUrls) {
+        problems.push(...urlProblems(name, text, cfg.allowedUrls));
+        if (name.endsWith('.json')) {               // also scan the decoded strings, so \u escapes can't hide a URL
+          let strings = [];
+          try { JSON.parse(text, (k, v) => { if (typeof v === 'string') strings.push(v); if (typeof k === 'string') strings.push(k); return v; }); }
+          catch { problems.push(`${name}: not valid JSON`); }
+          problems.push(...urlProblems(name, strings.join('\n'), cfg.allowedUrls));
+        }
+      }
     }
     if (name === 'manifest') {
       const keys = new Set(text.split(/\r?\n/).map((l) => l.split('=')[0].trim()).filter(Boolean));

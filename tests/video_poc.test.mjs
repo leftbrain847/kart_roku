@@ -54,6 +54,7 @@ test('POC gate: only the allowlisted media host, no HTTP client, no plain http',
   }
   assert.match(bad([{ name: 'source/x.brs', data: Buffer.from('u = "https:" + "//evil.example.com"') }]), /split URL scheme/);
   assert.match(bad([{ name: 'data/x.json', data: Buffer.from('{"u":"https://evil.example.com/a.mp4"}') }]), /not on the allowlist/);
+  assert.match(bad([{ name: 'data/x.json', data: Buffer.from('{"u":"https\\u003a//evil.example.com/a.mp4"}') }]), /not on the allowlist/, 'JSON escapes are decoded');
   assert.match(bad([{ name: 'source/x.brs', data: Buffer.from('x = CreateObject("rourltransfer")') }]), /roUrlTransfer/);
   assert.ok(CFG.allowedUrls.some((p) => baseUrl.startsWith(p)), 'baseUrl is on the allowlist');
 });
