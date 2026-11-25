@@ -2,28 +2,28 @@
 ' (alpha is added when the renderer pre-blends them with the fog). Sky/far/near art is drawn by scripts/art.
 function Themes() as Object
     return {
-        meadow: { terrain: { hills: 5.7, mountains: 11.2, bumps: 0.4 }, ground: [&h2F8A35, &h3A9E3F], road: [&h5A5E66, &h53575F], rumble: [&hE8E8E8, &hD43A2F], lane: &hF2F2F2
+        meadow: { terrain: { hills: 2.9, mountains: 6.7, bumps: 0.4 }, ground: [&h2F8A35, &h3A9E3F], road: [&h5A5E66, &h53575F], rumble: [&hE8E8E8, &hD43A2F], lane: &hF2F2F2
                   laneStyle: "dash", fog: &hA9DBF5, scenery: ["tree", "tree", "fence"], gap: 1.1 }
-        desert: { terrain: { hills: 3.8, mountains: 19.6, bumps: 0.25 }, rock: [&hB8683E, &hA85E38], ground: [&hD9A76A, &hE3B47A], road: [&h6E6058, &h665850], rumble: [&hF2E6D0, &hB5502A], lane: &hF6E9C8
+        desert: { terrain: { hills: 1.9, mountains: 11.8, bumps: 0.25 }, rock: [&hB8683E, &hA85E38], ground: [&hD9A76A, &hE3B47A], road: [&h6E6058, &h665850], rumble: [&hF2E6D0, &hB5502A], lane: &hF6E9C8
                   laneStyle: "dash", fog: &hF7D9A8, scenery: ["cactus", "rock"], gap: 1.3 }
-        city: { terrain: { hills: 0.8, mountains: 0, bumps: 0.1 }, ground: [&h1B1E2E, &h222638], road: [&h2E3140, &h292C3A], rumble: [&hFFD66B, &h3A3F5C], lane: &hFFE9A8
+        city: { terrain: { hills: 0.4, mountains: 0, bumps: 0.1 }, ground: [&h1B1E2E, &h222638], road: [&h2E3140, &h292C3A], rumble: [&hFFD66B, &h3A3F5C], lane: &hFFE9A8
                 laneStyle: "dash", fog: &h3A2A5A, scenery: ["lamp", "building"], gap: 1.4, tunnel: "steel" }
-        snow: { terrain: { hills: 7.6, mountains: 25.2, bumps: 0.5 }, ground: [&hE8EFF7, &hF6F9FC], road: [&h6F7D8C, &h687584], rumble: [&hFFFFFF, &h2F6FD4], lane: &hFFFFFF
+        snow: { terrain: { hills: 3.8, mountains: 15.1, bumps: 0.5 }, ground: [&hE8EFF7, &hF6F9FC], road: [&h6F7D8C, &h687584], rumble: [&hFFFFFF, &h2F6FD4], lane: &hFFFFFF
                 laneStyle: "dash", fog: &hE8F1FA, scenery: ["pine"], gap: 1.2, tunnel: "snow", chasm: [&h8FB2D8, &hA4C2E2] }
-        beach: { terrain: { hills: 3.8, mountains: 5.6, bumps: 0.3 }, ground: [&hE9D29C, &hF1DCAA], road: [&h626A74, &h5C646E], rumble: [&hFFFFFF, &h2FA4D8], lane: &hFFFFFF
+        beach: { terrain: { hills: 1.9, mountains: 3.4, bumps: 0.3 }, ground: [&hE9D29C, &hF1DCAA], road: [&h626A74, &h5C646E], rumble: [&hFFFFFF, &h2FA4D8], lane: &hFFFFFF
                  laneStyle: "dash", fog: &hBFEBFF, scenery: ["palm"], gap: 1.3, rightGround: [&h1F86C4, &h2A93D0] }
-        synth: { terrain: { hills: 4.8, mountains: 16.8, bumps: 0 }, rock: [&h3A1466, &h2E0F55], ground: [&h1A0B33, &h2A0F4A], road: [&h120A24, &h160C2C], rumble: [&hFF3EC8, &h3EE8FF], lane: &hFF6FD8
+        synth: { terrain: { hills: 2.4, mountains: 10.1, bumps: 0 }, rock: [&h3A1466, &h2E0F55], ground: [&h1A0B33, &h2A0F4A], road: [&h120A24, &h160C2C], rumble: [&hFF3EC8, &h3EE8FF], lane: &hFF6FD8
                  laneStyle: "solid", fog: &hFF5A9A, scenery: ["pylon"], gap: 1.0, tunnel: "steel" }
-        volcano: { terrain: { hills: 5.7, mountains: 22.4, bumps: 0.6 }, rock: [&h3A2A2A, &h2E2222], ground: [&h2A1C1C, &h332222], road: [&h3A3434, &h342E2E], rumble: [&hFF5A1A, &h2A1A1A], lane: &hFFB060
+        volcano: { terrain: { hills: 2.9, mountains: 13.4, bumps: 0.6 }, rock: [&h3A2A2A, &h2E2222], ground: [&h2A1C1C, &h332222], road: [&h3A3434, &h342E2E], rumble: [&hFF5A1A, &h2A1A1A], lane: &hFFB060
                    laneStyle: "dash", fog: &hD2461E, scenery: ["lavarock"], gap: 1.2 }
-        forest: { terrain: { hills: 7.6, mountains: 14, bumps: 0.5 }, ground: [&h24603A, &h2C6E42], road: [&h7A5A3A, &h725435], rumble: [&h9A7A50, &h5A3A20], lane: &hC8A878
+        forest: { terrain: { hills: 3.8, mountains: 8.4, bumps: 0.5 }, ground: [&h24603A, &h2C6E42], road: [&h7A5A3A, &h725435], rumble: [&h9A7A50, &h5A3A20], lane: &hC8A878
                   laneStyle: "none", fog: &hD9E8D0, scenery: ["pine", "tree"], gap: 0.9 }
-        autumn: { terrain: { hills: 6.6, mountains: 11.2, bumps: 0.4 }, ground: [&hA2843A, &hB08F42], road: [&h5E5A56, &h57534F], rumble: [&hF2EDE2, &hC2541E], lane: &hF2EDE2
+        autumn: { terrain: { hills: 3.3, mountains: 6.7, bumps: 0.4 }, ground: [&hA2843A, &hB08F42], road: [&h5E5A56, &h57534F], rumble: [&hF2EDE2, &hC2541E], lane: &hF2EDE2
                   laneStyle: "dash", fog: &hF5D9B0, scenery: ["autumn", "autumn", "fence"], gap: 1.1 }
-        space: { terrain: { hills: 3.8, mountains: 11.2, bumps: 0.9 }, rock: [&h55596A, &h4C5060], ground: [&h3A3D4A, &h434656], road: [&h17192A, &h1B1D30], rumble: [&h7A5CFF, &h3EE8FF], lane: &h9F8CFF
+        space: { terrain: { hills: 1.9, mountains: 6.7, bumps: 0.9 }, rock: [&h55596A, &h4C5060], ground: [&h3A3D4A, &h434656], road: [&h17192A, &h1B1D30], rumble: [&h7A5CFF, &h3EE8FF], lane: &h9F8CFF
                  laneStyle: "solid", fog: &h14183A, scenery: ["crystal"], gap: 1.2, tunnel: "steel" }
         ' Showcase worlds: textured roads, 3D-rendered racers and props, their own courses.
-        jungle: { terrain: { hills: 7.6, mountains: 16.8, bumps: 0.5 }, ground: [&h2E6B34, &h37793C], road: [&h96603E, &h8C5A3A], rumble: [&hD9C9A0, &h6B4A2A], lane: &hE8D8B0
+        jungle: { terrain: { hills: 3.8, mountains: 10.1, bumps: 0.5 }, ground: [&h2E6B34, &h37793C], road: [&h96603E, &h8C5A3A], rumble: [&hD9C9A0, &h6B4A2A], lane: &hE8D8B0
                   laneStyle: "none", fog: &hCFE2B8, scenery: ["fern", "palm", "fern"], gap: 1.1, roadTex: "road_jungle.jpg"
                   median: "brachio", landmarks: [{ at: 260, x: -9, k: "brachio" }, { at: 1150, x: 10, k: "brachio" }]
                   racers: ["hatchling", "triceracart", "gearsnail", "hermit"], chasm: [&h2E86A0, &h3A97B0]
@@ -32,13 +32,13 @@ function Themes() as Object
                     laneStyle: "dash", fog: &hFFAA88, scenery: ["beacon"], gap: 0.4, roadTex: "road_skytrack.jpg", void: true
                     hang: "girder", hangEvery: 12, tubeWall: [&h3A3F55, &h454B64], tubeCeil: [&h2C3044, &h343A50], tubeLight: &h7FE8FF
                     racers: ["toaster", "gearsnail", "jelly", "triceracart"] }
-        whirligig: { terrain: { hills: 9.5, mountains: 19.6, bumps: 0.6 }, rock: [&hC9A8F0, &hBC98E8], ground: [&h9FE6C8, &hFFC4E0], road: [&hF6E2F0, &hEED6E8], rumble: [&hFFFFFF, &hE04A9A], lane: &hFFFFFF
+        whirligig: { terrain: { hills: 4.8, mountains: 11.8, bumps: 0.6 }, rock: [&hC9A8F0, &hBC98E8], ground: [&h9FE6C8, &hFFC4E0], road: [&hF6E2F0, &hEED6E8], rumble: [&hFFFFFF, &hE04A9A], lane: &hFFFFFF
                      laneStyle: "none", fog: &hE8D8FF, scenery: ["swirltree", "swirltree", "teacup"], gap: 1.5
                      roadTex: "road_whirligig.jpg", median: "swirltree", tunnel: "candy"
                      landmarks: [{ at: 700, x: -7, k: "teacup" }, { at: 1050, x: 8, k: "teacup" }]
                      racers: ["teapot", "duckboat", "jelly", "gearsnail"], chasm: [&hB898E8, &hA886DC]
                      forkNames: [["UPSIDE", "DOWNSIDE"], ["FIDDLE", "FADDLE", "FOO"], ["HITHER", "THITHER"]] }
-        pebble: { terrain: { hills: 5.7, mountains: 9.8, bumps: 0.3 }, ground: [&hE4D3A8, &hEBDBB2], road: [&hBCB09A, &hB4A892], rumble: [&hFFFFFF, &h2A8FD0], lane: &hFFFFFF
+        pebble: { terrain: { hills: 2.9, mountains: 5.9, bumps: 0.3 }, ground: [&hE4D3A8, &hEBDBB2], road: [&hBCB09A, &hB4A892], rumble: [&hFFFFFF, &h2A8FD0], lane: &hFFFFFF
                   laneStyle: "none", fog: &hE6F4FA, scenery: ["umbrella", "palm"], gap: 1.4, roadTex: "road_pebble.jpg"
                   rightGround: [&h1F86C4, &h2A93D0], median: "palm"
                   landmarks: [{ at: 420, x: 9, k: "lighthouse" }, { at: 1330, x: 0, k: "rockarch" }]

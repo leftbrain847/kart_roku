@@ -277,7 +277,7 @@ sub ProjectRoad(r as Object, s as Object)
         xl = cx + (pieces[0].x0 - 0.14 - camX) * b.ppu
         xr = cx + (pieces[pieces.Count() - 1].x1 + 0.14 - camX) * b.ppu
         shw = cfg.terrain.shoulder * b.ppu
-        onScreen = [true, xl - 2 * shw > 0, xl - shw > 0, xl > 0, xr + 2 * shw < r.W, xr + shw < r.W, xr < r.W]
+        onScreen = [true, xl > 0, false, false, xr < r.W, false, false]
         for t = 0 to 6
             r.ty[t][i] = ys[t]
             r.tc[t][i] = clips[t]
@@ -336,20 +336,12 @@ function DrawSlice(r as Object, s as Object, scr as Object, cx as Float, i as In
         return -1
     end if
     if not void then
-        ' land beside the track, three steps up from the road: the slope, a middle step, the hills
-        ty = r.ty
-        tc = r.tc
-        slope = cfg.terrain.slope
-        mid = 0.5 + slope / 2
-        LandRect(scr, 0, xl - 2 * sh, ty[1][i], tc[1][i], LandColor(b, r.hL[i], stripe))
-        LandRect(scr, xl - 2 * sh, xl - sh, ty[2][i], tc[2][i], LandColor(b, r.hL[i] * mid, stripe))
-        LandRect(scr, xl - sh, xl, ty[3][i], tc[3][i], LandColor(b, r.hL[i] * slope, stripe))
+        ' land beside the track: one strip per side, from the screen edge to the road's edge
+        LandRect(scr, 0, xl, r.ty[1][i], r.tc[1][i], LandColor(b, r.hL[i], stripe))
         if r.theme.DoesExist("rightGround") then
-            LandRect(scr, xr, W, ty[4][i], tc[4][i], b.right[stripe])
+            LandRect(scr, xr, W, r.ty[4][i], r.tc[4][i], b.right[stripe])
         else
-            LandRect(scr, xr + 2 * sh, W, ty[4][i], tc[4][i], LandColor(b, r.hR[i], stripe))
-            LandRect(scr, xr + sh, xr + 2 * sh, ty[5][i], tc[5][i], LandColor(b, r.hR[i] * mid, stripe))
-            LandRect(scr, xr, xr + sh, ty[6][i], tc[6][i], LandColor(b, r.hR[i] * slope, stripe))
+            LandRect(scr, xr, W, r.ty[4][i], r.tc[4][i], LandColor(b, r.hR[i], stripe))
         end if
     end if
     if yN > y then
@@ -585,9 +577,8 @@ sub DrawThing(r as Object, s as Object, scr as Object, cx as Float, o as Object)
     sy = r.sy[i]
     if o.DoesExist("land") then
         ' on the slope (land 1) or the hills (land 2), left (side 0) or right
-        t = 3
-        if o.land = 2 then t = 1
-        if o.side = 1 then t = t + 3
+        t = 1
+        if o.side = 1 then t = 4
         sy = r.ty[t][i]
     end if
     sy = sy - o.h * ppu
