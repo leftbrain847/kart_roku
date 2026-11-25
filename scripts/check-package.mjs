@@ -2,12 +2,13 @@
 // Security gate for the sideload zip. The release workflow publishes the zip only if this passes.
 // Checks: only allowed files, manifest at the root with required keys, no network or store APIs in code,
 // no secret-looking strings anywhere, size limit.
-//   node scripts/check-package.mjs [dist/kart_roku.zip]
+//   node scripts/check-package.mjs [zip] [config.json]
+// A config may list allowedUrls (prefixes): then code may contain http(s) URLs, but only ones starting with those.
 import { readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readZip } from './zip.mjs';
-import { ROOT, CONFIG } from './build.mjs';
+import { ROOT, CONFIG, loadConfig } from './build.mjs';
 
 function regex(src) {
   // Allow a leading (?i) for case-insensitive patterns in the JSON config.
@@ -30,8 +31,13 @@ export function checkZip(buf, cfg = CONFIG) {
     if (name.split('/').some((part) => part.startsWith('.'))) problems.push(`${name}: hidden file`);
     const text = data.toString('latin1');
     for (const re of secrets) if (re.test(text)) problems.push(`${name}: looks like a secret (${re.source})`);
-    if (name === 'manifest' || name.endsWith('.brs')) {
-      for (const word of cfg.forbiddenCode) if (text.includes(word)) problems.push(`${name}: uses ${word} (the game makes no network calls)`);
+    if (name === 'manifest' || name.endsWith('.brs') || name.endsWith('.xml')) {
+      for (const word of cfg.forbiddenCode) if (text.includes(word)) problems.push(`${name}: uses ${word} (the app makes no network calls of its own)`);
+      if (cfg.allowedUrls) {
+        for (const [url] of text.matchAll(/https?:\/\/[^\s"'<>]*/g)) {
+          if (!cfg.allowedUrls.some((p) => url.startsWith(p))) problems.push(`${name}: URL not on the allowlist: ${url}`);
+        }
+      }
     }
     if (name === 'manifest') {
       const keys = new Set(text.split(/\r?\n/).map((l) => l.split('=')[0].trim()).filter(Boolean));
@@ -42,11 +48,12 @@ export function checkZip(buf, cfg = CONFIG) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const path = process.argv[2] ?? join(ROOT, CONFIG.outDir, CONFIG.zipName);
-  const { problems, files } = checkZip(readFileSync(path));
+  const cfg = process.argv[3] ? loadConfig(process.argv[3]) : CONFIG;
+  const path = process.argv[2] && process.argv[2] !== '-' ? process.argv[2] : join(ROOT, cfg.outDir, cfg.zipName);
+  const { problems, files } = checkZip(readFileSync(path), cfg);
   if (problems.length) {
     console.error(`package check FAILED for ${path}:\n- ${problems.join('\n- ')}`);
     process.exit(1);
   }
-  console.log(`package check passed: ${files.length} files, no network APIs, no secrets`);
+  console.log(`package check passed: ${files.length} files, no network APIs${cfg.allowedUrls ? ', URLs only under ' + cfg.allowedUrls.join(' ') : ''}, no secrets`);
 }

@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// Build the Roku sideload zip: dist/kart_roku.zip with manifest, source/ and images/ at the zip root.
-//   node scripts/build.mjs
+// Build a Roku sideload zip with manifest, source/ and images/ (and whatever else the config includes) at the zip root.
+//   node scripts/build.mjs                                  -> dist/kart_roku.zip (the game)
+//   node scripts/build.mjs scripts/video_poc.config.json    -> dist/kart_video_poc.zip (the video-track POC)
 import { readFileSync, readdirSync, statSync, lstatSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { makeZip } from './zip.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const CONFIG = JSON.parse(readFileSync(join(ROOT, 'scripts', 'package.config.json'), 'utf8'));
+export const loadConfig = (path = join(ROOT, 'scripts', 'package.config.json')) => JSON.parse(readFileSync(resolve(ROOT, path), 'utf8'));
+export const CONFIG = loadConfig();
 
 function walk(abs) {
   const st = lstatSync(abs);
@@ -17,8 +19,9 @@ function walk(abs) {
 }
 
 export function collect(root = ROOT, cfg = CONFIG) {
-  return cfg.include.flatMap((p) => walk(join(root, p))).map((abs) => ({
-    name: relative(root, abs).split(sep).join('/'),
+  const base = join(root, cfg.root ?? '');
+  return cfg.include.flatMap((p) => walk(join(base, p))).map((abs) => ({
+    name: relative(base, abs).split(sep).join('/'),
     data: readFileSync(abs),
   }));
 }
@@ -32,6 +35,7 @@ export function build(root = ROOT, cfg = CONFIG) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const out = build();
+  const cfg = process.argv[2] ? loadConfig(process.argv[2]) : CONFIG;
+  const out = build(ROOT, cfg);
   console.log(`built ${relative(ROOT, out)} (${statSync(out).size} bytes)`);
 }

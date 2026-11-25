@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Video-track race: the track is a pre-rendered video; karts and HUD are transparent overlays on top. -->
+<component name="RaceScene" extends="Scene">
+  <interface>
+    <field id="exitApp" type="boolean" value="false" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/logic.brs" />
+  <script type="text/brightscript" uri="pkg:/components/RaceScene.brs" />
+  <children>
+    <Rectangle id="bg" width="1280" height="720" color="0x101418FF" />
+    <Video id="video" width="1280" height="720" enableUI="false" />
+    <Group id="overlay">
+      <Poster id="k0" /><Poster id="k1" /><Poster id="k2" /><Poster id="k3" />
+    </Group>
+    <Group id="hud" visible="false">
+      <Rectangle width="300" height="96" translation="[24,20]" color="0x0B0F23A0" />
+      <Label id="lapLabel" translation="[40,28]" font="font:MediumBoldSystemFont" color="0xFFFFFFFF" />
+      <Label id="timeLabel" translation="[40,64]" font="font:SmallSystemFont" color="0xFFD23FFF" />
+      <Label id="posLabel" translation="[1080,18]" width="180" horizAlign="right" font="font:LargeBoldSystemFont" color="0xFFFFFFFF" />
+      <Label id="boostLabel" translation="[980,92]" width="280" horizAlign="right" font="font:SmallBoldSystemFont" color="0x5CE1FFFF" />
+      <Label id="speedLabel" translation="[540,648]" width="200" horizAlign="center" font="font:MediumBoldSystemFont" color="0xFFFFFFFF" />
+      <Group id="fork" visible="false">
+        <Rectangle id="forkL" width="300" height="56" translation="[320,130]" color="0x0B0F23C0" />
+        <Rectangle id="forkR" width="300" height="56" translation="[660,130]" color="0x0B0F23C0" />
+        <Label id="forkLLabel" translation="[320,138]" width="300" horizAlign="center" font="font:MediumBoldSystemFont" color="0xFFFFFFFF" />
+        <Label id="forkRLabel" translation="[660,138]" width="300" horizAlign="center" font="font:MediumBoldSystemFont" color="0xFFFFFFFF" />
+      </Group>
+      <Label id="debug" translation="[24,690]" font="font:SmallestSystemFont" color="0xFFFFFFC0" />
+      <Label id="banner" translation="[0,300]" width="1280" horizAlign="center" font="font:LargeBoldSystemFont" color="0xFFD23FFF" />
+    </Group>
+    <Group id="menu">
+      <Poster id="menuBg" width="1280" height="720" />
+      <Rectangle width="1280" height="720" color="0x00000070" />
+      <Label text="KART: VIDEO TRACKS" translation="[0,90]" width="1280" horizAlign="center" font="font:LargeBoldSystemFont" color="0xFFD23FFF" />
+      <Label id="menuWorld" translation="[0,300]" width="1280" horizAlign="center" font="font:LargeBoldSystemFont" color="0xFFFFFFFF" />
+      <Label id="menuHelp" translation="[0,560]" width="1280" horizAlign="center" font="font:SmallSystemFont" color="0xFFFFFFFF"
+        text="Left/Right pick a track, OK to race.  Racing: Left/Right change lane (and pick the fork), OK boost, Down lane zoom on/off, * switch method, Play pause, Back menu" />
+      <Label id="menuInfo" translation="[0,610]" width="1280" horizAlign="center" font="font:SmallestSystemFont" color="0xFFFFFFB0" />
+    </Group>
+    <Timer id="tick" repeat="true" />
+  </children>
+</component>
