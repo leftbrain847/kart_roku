@@ -152,12 +152,12 @@ function GameConfig() as Object
         roster: ["hatchling", "triceracart", "toaster", "gearsnail", "hermit", "jelly", "teapot", "duckboat"]
         racers: ["hatchling", "triceracart", "toaster", "hermit"]
         ' Tracks offered on the title screen, in order: the three worlds, then the classic road themes.
-        tracks: ["whirligig", "jungle", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
+        tracks: ["jungle", "whirligig", "skytrack", "pebble", "meadow", "desert", "city", "snow", "beach", "synth", "volcano", "forest", "autumn", "space"]
         fog: { start: 25, end: 150, max: 0.8 }   ' road colors blend toward the sky color with distance
 
         ' The land beside the track (units above the road): rolling hills, mountains, small bumps; `slope` is how
         ' far up the inner slope next to the road rises, `shoulder` how wide it is. Worlds override this.
-        terrain: { hills: 5.5, mountains: 13, bumps: 0.4, slope: 0.35, shoulder: 1.2 }
+        terrain: { hills: 2.8, mountains: 8, bumps: 0.4, slope: 0.35, shoulder: 1.2 }
 
         bestKey: "best_lap_ms"   ' registry key for the best lap
         maxDt: 0.1               ' clamp long frames so the sim never jumps
