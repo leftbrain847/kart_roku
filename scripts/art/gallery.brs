@@ -22,6 +22,12 @@ sub Main(args as Dynamic)
         { w: "snow", r: "jelly", at: 1020, sim: 0.1, name: "terr_snow", label: "SNOW PASS  mountains" }
         { w: "desert", r: "triceracart", at: 1250, sim: 0.1, name: "terr_desert", label: "MESA DESERT  rolling dunes" }
         { w: "volcano", r: "gearsnail", at: 1450, sim: 0.1, name: "terr_volcano", label: "LAVA FIELDS  ridges" }
+        { w: "pebble", r: "hermit", at: 1612, sim: 0.05, name: "lp_0", label: "PEBBLE COVE  loop 0" }
+        { w: "pebble", r: "hermit", at: 1639, sim: 0.05, name: "lp_1", label: "PEBBLE COVE  loop 1" }
+        { w: "pebble", r: "hermit", at: 1666, sim: 0.05, name: "lp_2", label: "PEBBLE COVE  loop 2" }
+        { w: "pebble", r: "hermit", at: 1688, sim: 0.05, name: "lp_3", label: "PEBBLE COVE  loop 3" }
+        { w: "pebble", r: "hermit", at: 1723, sim: 0.05, name: "lp_4", label: "PEBBLE COVE  loop 4" }
+        { w: "pebble", r: "hermit", at: 1750, sim: 0.05, name: "lp_5", label: "PEBBLE COVE  loop 5" }
         { w: "pebble", r: "hermit", at: 1590, sim: 0.1, name: "loop_a", label: "PEBBLE COVE  loop entry" }
         { w: "pebble", r: "hermit", at: 1640, sim: 0.1, name: "loop_b", label: "PEBBLE COVE  up the loop" }
         { w: "pebble", r: "hermit", at: 1680, sim: 0.1, name: "loop_c", label: "PEBBLE COVE  top of the loop" }

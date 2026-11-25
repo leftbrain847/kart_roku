@@ -200,17 +200,22 @@ sub DrawFrame(r as Object, s as Object)
         end for
     end if
 
-    ProjectRoad(r, s)
-    DrawWorld(r, s, scr, cx)
+    if not looping then
+        ProjectRoad(r, s)
+        DrawWorld(r, s, scr, cx)
+    end if
 
     if looping then
-        ' A loop pitches you over forwards: the world scrolls down past you, comes round upside down at the top
-        ' (sky meets sky, ground meets ground), and scrolls back to level. Your kart stays put.
+        ' A loop: the camera rides round with your kart. Behind the loop the world (sky, hills, ground; no road)
+        ' pitches past: sky as you climb, the ground overhead at the top, then level again. In front, the loop's
+        ' own track is drawn from the kart's point of view, curling up the screen and over, then the road
+        ' beyond the exit. Your kart stays on it, upright.
         sh = cfg.screen.h
         scroll = Int(pitch / 360 * 2 * sh)
         r.screen.DrawObject(0, scroll, r.pframe)
         r.screen.DrawObject(0, scroll - 2 * sh, r.pframe)
         r.screen.DrawRotatedObject(cfg.screen.w, scroll, 180, r.pframe)
+        DrawLoopTrack(r, s, pitch)
         DrawPlayerUpright(r, s)
     end if
     if rolled then
@@ -596,7 +601,88 @@ sub DrawThing(r as Object, s as Object, scr as Object, cx as Float, o as Object)
     end if
 end sub
 
-'' Your kart drawn straight onto the screen at its usual spot, over a rolled or pitched world.
+''' The loop's track seen from your kart: sample the circle ahead (and the straight after the exit) in the kart's
+' own frame, project each point, and paint the ribbon far to near.
+sub DrawLoopTrack(r as Object, s as Object, pitch as Float)
+    cfg = s.cfg
+    cam = cfg.camera
+    k = cam.k
+    c = cam.playerDepth
+    camH = cam.height
+    hy = cfg.screen.horizonY
+    W = cfg.screen.w
+    H = cfg.screen.h
+    loopLen = LoopLenAt(cfg, s.player.s)
+    rad = loopLen / 6.2831853
+    remaining = 360 - pitch
+    cx0 = W / 2 - s.camX * k / c
+    b0 = r.mainView.bands[r.mainView.bands.Count() - 1]
+    halfW = cfg.lanes.count / 2.0
+    pts = []
+    a = 0.0
+    while a <= remaining and a <= 179
+        ar = a * 3.14159265 / 180
+        pts.Push({ f: rad * Sin(ar), u: rad * (1 - Cos(ar)), along: rad * ar })
+        ' fine steps near the kart, coarser further round
+        a = a + 0.4 + a * 0.04
+    end while
+    if remaining <= 179 then
+        ' the straight road after the exit, along the track's direction there
+        ar = remaining * 3.14159265 / 180
+        f0 = rad * Sin(ar)
+        u0 = rad * (1 - Cos(ar))
+        for t = 2 to 90 step 3
+            pts.Push({ f: f0 + t * Cos(ar), u: u0 + t * Sin(ar), along: rad * ar + t })
+        end for
+    end if
+    segs = []
+    for i = 1 to pts.Count() - 1
+        p0 = pts[i - 1]
+        p1 = pts[i]
+        d0 = p0.f + c
+        d1 = p1.f + c
+        if d0 > 0.8 and d1 > 0.8 then
+            y0 = hy - (p0.u - camH) * k / d0
+            y1 = hy - (p1.u - camH) * k / d1
+            dn = d0
+            if d1 < dn then dn = d1
+            segs.Push({ depth: (d0 + d1) / 2, y0: y0, y1: y1, ppu: k / dn, along: p1.along })
+        end if
+    end for
+    segs.SortBy("depth", "r")
+    for each sg in segs
+        top = sg.y0
+        bot = sg.y1
+        if bot < top then
+            top = sg.y1
+            bot = sg.y0
+        end if
+        if bot - top < 1 then bot = top + 1
+        if bot > 0 and top < H then
+            stripe = Int((s.player.s + sg.along) / cfg.track.stripeLen) and 1
+            hw = halfW * sg.ppu
+            rw = 0.14 * sg.ppu + 1
+            r.screen.DrawRect(cx0 - hw - rw, top, rw, bot - top, b0.rumble[stripe])
+            r.screen.DrawRect(cx0 + hw, top, rw, bot - top, b0.rumble[stripe])
+            r.screen.DrawRect(cx0 - hw, top, 2 * hw, bot - top, b0.road[stripe])
+        end if
+    end for
+    ' the road under and just in front of the kart, in perspective down to the bottom of the screen
+    yk = Int(hy + camH * k / c)
+    y = yk
+    while y < H
+        ppu = (y + 3 - hy) / camH
+        hw = halfW * ppu
+        rw = 0.14 * ppu + 1
+        stripe = Int((s.player.s - camH * k / (y - hy + 0.1) + c) / cfg.track.stripeLen) and 1
+        r.screen.DrawRect(cx0 - hw - rw, y, rw, 6, b0.rumble[stripe])
+        r.screen.DrawRect(cx0 + hw, y, rw, 6, b0.rumble[stripe])
+        r.screen.DrawRect(cx0 - hw, y, 2 * hw, 6, b0.road[stripe])
+        y = y + 6
+    end while
+end sub
+
+' Your kart drawn straight onto the screen at its usual spot, over a rolled or pitched world.
 sub DrawPlayerUpright(r as Object, s as Object)
     cfg = s.cfg
     ppu = cfg.camera.k / cfg.camera.playerDepth
