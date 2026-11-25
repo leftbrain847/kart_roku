@@ -60,6 +60,25 @@ The game loads each PNG once per race and pre-scales it into 30 sizes; frames on
 
 Note: Roku requires SceneGraph for apps published to the Channel Store; `roScreen` is a legacy API. That's fine for sideloading, which is how this build ships.
 
+## Video-track POC (`video_poc/`)
+A second, separate app that tests a different idea: the track is **pre-rendered video** and only the karts and HUD are drawn live, so the background can be any quality. Two worlds: **Fern Rush** (an original prehistoric jungle: gorge waterfall or ruin ridge) and **The Grand Stacks** (an enormous modern library: book tunnel or glass mezzanine).
+
+- Each world is a shared straight plus one video per fork branch, rendered once from a camera that rides the line across the five karts' mirrors at a steady 32 m/s. Boosts and spins show as your kart surging ahead of or dropping behind that line.
+- Your lane picks the fork (left two lanes: left fork, right two: right, middle keeps your last pick) and stays open until your kart reaches the split, 0.375 s before the cut.
+- Karts are SceneGraph Posters over the Video node, drawn from 24 rendered angles and placed per frame from a lane table exported with each video (`video_poc/data/<world>.json`).
+- Down toggles the lane zoom (the picture scales 1.25× and centres your lane). `*` cycles three ways of switching to the fork (`playlist`: nextContentIndex; `seek`: one file, seek to the branch; `swap`: load the next file when one ends). The bottom line shows overlay fps, video state and the measured stall at each fork switch, so we can pick the method on the TV.
+
+Run: `npm run build:poc` -> `dist/kart_video_poc.zip`, `npm run check:poc` (security gate: every URL written in the code or data must sit under the media base URL; no HTTP client, sockets or plain http. It is a text scan, so a URL assembled from pieces would need code review to catch), then sideload as above. The videos stream from `media/` in this repo (`baseUrl` in `video_poc/source/logic.brs`; point it at a Cloudflare R2 bucket later and add that prefix to `allowedUrls` in `scripts/video_poc.config.json`).
+
+Re-render the media (not part of CI; needs ffmpeg and the preinstalled Playwright Chromium):
+```
+cd scripts/video && npm install
+node render.mjs world jungle /tmp/media/jungle            # three.js in headless Chromium, ~1.5 s/frame
+node render.mjs karts /tmp/karts && python3 sprites.py /tmp/karts ../../video_poc/images/karts
+python3 publish.py /tmp/media/jungle ../../media/jungle ../../video_poc/data/jungle.json
+python3 preview.py ../../media/jungle ../../video_poc/data/jungle.json ../../video_poc/images/karts /tmp/preview.mp4 left
+```
+
 ## Layout
 ```
 manifest, images/          Roku app metadata and icons
@@ -74,6 +93,8 @@ source/main.brs            screen, frame loop, saved best lap
 scripts/                   build, zip, security gate, sprint snapshot; scripts/art: art generators
 tests/                     unit tests (BrightScript) and end-to-end tests (node:test)
 sprint/kart.html           the day page for the sprint site
+video_poc/                 the video-track POC app (SceneGraph); media/ holds its videos
+scripts/video/             offline renderer for the POC (three.js scenes, kart sprites, publish, preview)
 ```
 
 ## Deployed

@@ -1,0 +1,7 @@
+{
+  "name": "kart-video-render",
+  "private": true,
+  "type": "module",
+  "description": "Offline renderer for the video-track POC: three.js scenes in headless Chromium -> frames -> ffmpeg. Not part of CI.",
+  "dependencies": { "three": "0.187.0" }
+}

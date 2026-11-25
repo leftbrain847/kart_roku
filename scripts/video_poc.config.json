@@ -1,0 +1,31 @@
+{
+  "$comment": "The video-track POC package (video_poc/). Unlike the game, it streams its track videos, so code may contain URLs, but only under allowedUrls. It still may not open sockets or make its own HTTP requests.",
+  "root": "video_poc",
+  "zipName": "kart_video_poc.zip",
+  "outDir": "dist",
+  "include": ["manifest", "source", "components", "images", "data"],
+  "allowedExtensions": [".brs", ".xml", ".png", ".jpg", ".json"],
+  "maxBytes": 1900000,
+  "allowedUrls": ["https://raw.githubusercontent.com/leftbrain847/kart_roku/main/media/"],
+  "forbiddenCode": [
+    "roUrlTransfer",
+    "roSocketAddress",
+    "roStreamSocket",
+    "roDataGramSocket",
+    "roHttpAgent",
+    "roChannelStore",
+    "roSystemLog",
+    "http://"
+  ],
+  "secretPatterns": [
+    "-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    "ghp_[A-Za-z0-9]{20,}",
+    "github_pat_[A-Za-z0-9_]{20,}",
+    "AKIA[0-9A-Z]{16}",
+    "sk-[A-Za-z0-9]{20,}",
+    "AIza[0-9A-Za-z_-]{30,}",
+    "xox[baprs]-[A-Za-z0-9-]{10,}",
+    "(?i)(api[_-]?key|secret|password|token)\\s*[:=]\\s*\"[^\"]{8,}\""
+  ],
+  "manifestRequired": ["title", "major_version", "minor_version", "build_version"]
+}
